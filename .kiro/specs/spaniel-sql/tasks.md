@@ -22,16 +22,16 @@
     - Write unit tests for parameter addition and reuse scenarios
     - _Requirements: 7.2, 7.3_
 
-- [ ] 3. Create condition representation types and utilities
+- [x] 3. Create condition representation types and utilities
 
-  - [ ] 3.1 Define Condition and ConditionGroup types
+  - [x] 3.1 Define Condition and ConditionGroup types
 
     - Write Condition interface for individual conditions
     - Write ConditionGroup interface for logical groupings
     - Create utility types for condition tree structure
     - _Requirements: 1.2, 5.3, 5.4_
 
-  - [ ] 3.2 Implement condition creation helper functions
+  - [x] 3.2 Implement condition creation helper functions
     - Write functions to create comparison conditions (eq, ne, gt, lt, ge, le)
     - Write functions to create array conditions (in, notIn)
     - Write functions to create string pattern conditions (like, notLike)

@@ -9,6 +9,30 @@ import {
   ParameterManager,
   createParameterManager,
   addParameter,
+  Condition,
+  ConditionGroup,
+  ConditionNode,
+  ConditionType,
+  LogicalOperator,
+  isCondition,
+  isConditionGroup,
+  createComparisonCondition,
+  createEqCondition,
+  createNeCondition,
+  createGtCondition,
+  createLtCondition,
+  createGeCondition,
+  createLeCondition,
+  createInCondition,
+  createNotInCondition,
+  createLikeCondition,
+  createNotLikeCondition,
+  createStartsWithCondition,
+  createEndsWithCondition,
+  createIsNullCondition,
+  createIsNotNullCondition,
+  createAndGroup,
+  createOrGroup,
 } from "../src/types";
 
 describe("Core Types", () => {
@@ -343,5 +367,343 @@ describe("addParameter", () => {
       param1: "test",
       param2: "another",
     });
+  });
+});
+describe("Condition Types", () => {
+  test("ConditionType should include all supported types", () => {
+    const validTypes: ConditionType[] = [
+      "comparison",
+      "in",
+      "like",
+      "null",
+      "function",
+    ];
+
+    validTypes.forEach((type) => {
+      assert.ok(typeof type === "string");
+    });
+  });
+
+  test("LogicalOperator should include all supported operators", () => {
+    const validOperators: LogicalOperator[] = ["and", "or"];
+
+    validOperators.forEach((op) => {
+      assert.ok(typeof op === "string");
+    });
+  });
+
+  test("Condition should have correct structure", () => {
+    const condition: Condition = {
+      type: "comparison",
+      column: "age",
+      operator: "=",
+      value: 25,
+      parameterName: "@param1",
+    };
+
+    assert.strictEqual(condition.type, "comparison");
+    assert.strictEqual(condition.column, "age");
+    assert.strictEqual(condition.operator, "=");
+    assert.strictEqual(condition.value, 25);
+    assert.strictEqual(condition.parameterName, "@param1");
+  });
+
+  test("ConditionGroup should have correct structure", () => {
+    const condition1: Condition = {
+      type: "comparison",
+      column: "age",
+      operator: "=",
+      value: 25,
+      parameterName: "@param1",
+    };
+
+    const condition2: Condition = {
+      type: "comparison",
+      column: "name",
+      operator: "=",
+      value: "John",
+      parameterName: "@param2",
+    };
+
+    const group: ConditionGroup = {
+      type: "and",
+      conditions: [condition1, condition2],
+    };
+
+    assert.strictEqual(group.type, "and");
+    assert.ok(Array.isArray(group.conditions));
+    assert.strictEqual(group.conditions.length, 2);
+    assert.strictEqual(group.conditions[0], condition1);
+    assert.strictEqual(group.conditions[1], condition2);
+  });
+});
+
+describe("Type Guards", () => {
+  test("isCondition should correctly identify Condition objects", () => {
+    const condition: Condition = {
+      type: "comparison",
+      column: "age",
+      operator: "=",
+      value: 25,
+      parameterName: "@param1",
+    };
+
+    const group: ConditionGroup = {
+      type: "and",
+      conditions: [condition],
+    };
+
+    assert.ok(isCondition(condition));
+    assert.ok(!isCondition(group));
+  });
+
+  test("isConditionGroup should correctly identify ConditionGroup objects", () => {
+    const condition: Condition = {
+      type: "comparison",
+      column: "age",
+      operator: "=",
+      value: 25,
+      parameterName: "@param1",
+    };
+
+    const group: ConditionGroup = {
+      type: "and",
+      conditions: [condition],
+    };
+
+    assert.ok(isConditionGroup(group));
+    assert.ok(!isConditionGroup(condition));
+  });
+});
+
+describe("Comparison Condition Creation", () => {
+  test("createComparisonCondition should create correct condition", () => {
+    const condition = createComparisonCondition("age", "=", 25, "@param1");
+
+    assert.strictEqual(condition.type, "comparison");
+    assert.strictEqual(condition.column, "age");
+    assert.strictEqual(condition.operator, "=");
+    assert.strictEqual(condition.value, 25);
+    assert.strictEqual(condition.parameterName, "@param1");
+  });
+
+  test("createEqCondition should create equality condition", () => {
+    const condition = createEqCondition("name", "John", "@param1");
+
+    assert.strictEqual(condition.type, "comparison");
+    assert.strictEqual(condition.column, "name");
+    assert.strictEqual(condition.operator, "=");
+    assert.strictEqual(condition.value, "John");
+    assert.strictEqual(condition.parameterName, "@param1");
+  });
+
+  test("createNeCondition should create not-equal condition", () => {
+    const condition = createNeCondition("status", "inactive", "@param1");
+
+    assert.strictEqual(condition.type, "comparison");
+    assert.strictEqual(condition.column, "status");
+    assert.strictEqual(condition.operator, "!=");
+    assert.strictEqual(condition.value, "inactive");
+    assert.strictEqual(condition.parameterName, "@param1");
+  });
+
+  test("createGtCondition should create greater-than condition", () => {
+    const condition = createGtCondition("age", 18, "@param1");
+
+    assert.strictEqual(condition.type, "comparison");
+    assert.strictEqual(condition.column, "age");
+    assert.strictEqual(condition.operator, ">");
+    assert.strictEqual(condition.value, 18);
+    assert.strictEqual(condition.parameterName, "@param1");
+  });
+
+  test("createLtCondition should create less-than condition", () => {
+    const condition = createLtCondition("score", 100, "@param1");
+
+    assert.strictEqual(condition.type, "comparison");
+    assert.strictEqual(condition.column, "score");
+    assert.strictEqual(condition.operator, "<");
+    assert.strictEqual(condition.value, 100);
+    assert.strictEqual(condition.parameterName, "@param1");
+  });
+
+  test("createGeCondition should create greater-than-or-equal condition", () => {
+    const condition = createGeCondition("rating", 4.5, "@param1");
+
+    assert.strictEqual(condition.type, "comparison");
+    assert.strictEqual(condition.column, "rating");
+    assert.strictEqual(condition.operator, ">=");
+    assert.strictEqual(condition.value, 4.5);
+    assert.strictEqual(condition.parameterName, "@param1");
+  });
+
+  test("createLeCondition should create less-than-or-equal condition", () => {
+    const condition = createLeCondition("price", 99.99, "@param1");
+
+    assert.strictEqual(condition.type, "comparison");
+    assert.strictEqual(condition.column, "price");
+    assert.strictEqual(condition.operator, "<=");
+    assert.strictEqual(condition.value, 99.99);
+    assert.strictEqual(condition.parameterName, "@param1");
+  });
+});
+
+describe("Array Condition Creation", () => {
+  test("createInCondition should create IN condition", () => {
+    const values = ["active", "pending", "completed"];
+    const parameterNames = ["@param1", "@param2", "@param3"];
+    const condition = createInCondition("status", values, parameterNames);
+
+    assert.strictEqual(condition.type, "in");
+    assert.strictEqual(condition.column, "status");
+    assert.strictEqual(condition.operator, "IN");
+    assert.deepStrictEqual(condition.values, values);
+    assert.deepStrictEqual(condition.parameterNames, parameterNames);
+  });
+
+  test("createNotInCondition should create NOT IN condition", () => {
+    const values = [1, 2, 3];
+    const parameterNames = ["@param1", "@param2", "@param3"];
+    const condition = createNotInCondition("id", values, parameterNames);
+
+    assert.strictEqual(condition.type, "in");
+    assert.strictEqual(condition.column, "id");
+    assert.strictEqual(condition.operator, "NOT IN");
+    assert.deepStrictEqual(condition.values, values);
+    assert.deepStrictEqual(condition.parameterNames, parameterNames);
+  });
+
+  test("createInCondition should handle empty arrays", () => {
+    const condition = createInCondition("status", [], []);
+
+    assert.strictEqual(condition.type, "in");
+    assert.strictEqual(condition.column, "status");
+    assert.strictEqual(condition.operator, "IN");
+    assert.deepStrictEqual(condition.values, []);
+    assert.deepStrictEqual(condition.parameterNames, []);
+  });
+});
+
+describe("String Pattern Condition Creation", () => {
+  test("createLikeCondition should create LIKE condition", () => {
+    const condition = createLikeCondition("name", "John%", "@param1");
+
+    assert.strictEqual(condition.type, "like");
+    assert.strictEqual(condition.column, "name");
+    assert.strictEqual(condition.operator, "LIKE");
+    assert.strictEqual(condition.value, "John%");
+    assert.strictEqual(condition.parameterName, "@param1");
+  });
+
+  test("createNotLikeCondition should create NOT LIKE condition", () => {
+    const condition = createNotLikeCondition("email", "%@spam.com", "@param1");
+
+    assert.strictEqual(condition.type, "like");
+    assert.strictEqual(condition.column, "email");
+    assert.strictEqual(condition.operator, "NOT LIKE");
+    assert.strictEqual(condition.value, "%@spam.com");
+    assert.strictEqual(condition.parameterName, "@param1");
+  });
+
+  test("createStartsWithCondition should create STARTS_WITH function condition", () => {
+    const condition = createStartsWithCondition("name", "John", "@param1");
+
+    assert.strictEqual(condition.type, "function");
+    assert.strictEqual(condition.column, "name");
+    assert.strictEqual(condition.operator, "STARTS_WITH");
+    assert.strictEqual(condition.value, "John");
+    assert.strictEqual(condition.parameterName, "@param1");
+  });
+
+  test("createEndsWithCondition should create ENDS_WITH function condition", () => {
+    const condition = createEndsWithCondition(
+      "email",
+      "@example.com",
+      "@param1"
+    );
+
+    assert.strictEqual(condition.type, "function");
+    assert.strictEqual(condition.column, "email");
+    assert.strictEqual(condition.operator, "ENDS_WITH");
+    assert.strictEqual(condition.value, "@example.com");
+    assert.strictEqual(condition.parameterName, "@param1");
+  });
+});
+
+describe("Null Check Condition Creation", () => {
+  test("createIsNullCondition should create IS NULL condition", () => {
+    const condition = createIsNullCondition("deleted_at");
+
+    assert.strictEqual(condition.type, "null");
+    assert.strictEqual(condition.column, "deleted_at");
+    assert.strictEqual(condition.operator, "IS NULL");
+    assert.strictEqual(condition.value, undefined);
+    assert.strictEqual(condition.parameterName, undefined);
+  });
+
+  test("createIsNotNullCondition should create IS NOT NULL condition", () => {
+    const condition = createIsNotNullCondition("created_at");
+
+    assert.strictEqual(condition.type, "null");
+    assert.strictEqual(condition.column, "created_at");
+    assert.strictEqual(condition.operator, "IS NOT NULL");
+    assert.strictEqual(condition.value, undefined);
+    assert.strictEqual(condition.parameterName, undefined);
+  });
+});
+
+describe("Condition Group Creation", () => {
+  test("createAndGroup should create AND condition group", () => {
+    const condition1 = createEqCondition("age", 25, "@param1");
+    const condition2 = createEqCondition("status", "active", "@param2");
+    const group = createAndGroup([condition1, condition2]);
+
+    assert.strictEqual(group.type, "and");
+    assert.ok(Array.isArray(group.conditions));
+    assert.strictEqual(group.conditions.length, 2);
+    assert.strictEqual(group.conditions[0], condition1);
+    assert.strictEqual(group.conditions[1], condition2);
+  });
+
+  test("createOrGroup should create OR condition group", () => {
+    const condition1 = createEqCondition("priority", "high", "@param1");
+    const condition2 = createEqCondition("priority", "urgent", "@param2");
+    const group = createOrGroup([condition1, condition2]);
+
+    assert.strictEqual(group.type, "or");
+    assert.ok(Array.isArray(group.conditions));
+    assert.strictEqual(group.conditions.length, 2);
+    assert.strictEqual(group.conditions[0], condition1);
+    assert.strictEqual(group.conditions[1], condition2);
+  });
+
+  test("createAndGroup should handle nested groups", () => {
+    const condition1 = createEqCondition("age", 25, "@param1");
+    const condition2 = createEqCondition("status", "active", "@param2");
+    const innerGroup = createOrGroup([condition1, condition2]);
+    const condition3 = createGtCondition("score", 80, "@param3");
+    const outerGroup = createAndGroup([innerGroup, condition3]);
+
+    assert.strictEqual(outerGroup.type, "and");
+    assert.strictEqual(outerGroup.conditions.length, 2);
+    assert.strictEqual(outerGroup.conditions[0], innerGroup);
+    assert.strictEqual(outerGroup.conditions[1], condition3);
+  });
+
+  test("createOrGroup should handle empty conditions array", () => {
+    const group = createOrGroup([]);
+
+    assert.strictEqual(group.type, "or");
+    assert.ok(Array.isArray(group.conditions));
+    assert.strictEqual(group.conditions.length, 0);
+  });
+
+  test("createAndGroup should handle single condition", () => {
+    const condition = createEqCondition("name", "John", "@param1");
+    const group = createAndGroup([condition]);
+
+    assert.strictEqual(group.type, "and");
+    assert.strictEqual(group.conditions.length, 1);
+    assert.strictEqual(group.conditions[0], condition);
   });
 });
