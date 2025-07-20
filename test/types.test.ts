@@ -1,6 +1,6 @@
 import { test, describe } from 'node:test';
 import assert from 'node:assert';
-import { SpannerDataType, ComparisonOperator, QueryResult, TableSchema, SpannerTypeHint } from '../src/types';
+import { SpannerDataType, ComparisonOperator, QueryResult, TableSchema, SpannerTypeHint, ParameterManager, createParameterManager } from '../src/types';
 
 describe('Core Types', () => {
   test('SpannerDataType should include all supported types', () => {
@@ -94,5 +94,47 @@ describe('Core Types', () => {
     assert.ok(typeof schema === 'object');
     assert.strictEqual(schema.id, 'INT64');
     assert.strictEqual(schema.name, 'STRING');
+  });
+});
+
+describe('ParameterManager', () => {
+  test('ParameterManager should have immutable structure', () => {
+    const manager: ParameterManager = {
+      parameters: { param1: 'value1' },
+      counter: 1
+    };
+
+    assert.ok(typeof manager === 'object');
+    assert.ok(typeof manager.parameters === 'object');
+    assert.ok(typeof manager.counter === 'number');
+    assert.strictEqual(manager.parameters.param1, 'value1');
+    assert.strictEqual(manager.counter, 1);
+  });
+
+  test('createParameterManager should create empty manager', () => {
+    const manager = createParameterManager();
+
+    assert.ok(typeof manager === 'object');
+    assert.ok(typeof manager.parameters === 'object');
+    assert.ok(typeof manager.counter === 'number');
+    assert.deepStrictEqual(manager.parameters, {});
+    assert.strictEqual(manager.counter, 0);
+  });
+
+  test('createParameterManager should return new instance each time', () => {
+    const manager1 = createParameterManager();
+    const manager2 = createParameterManager();
+
+    assert.notStrictEqual(manager1, manager2);
+    assert.deepStrictEqual(manager1.parameters, manager2.parameters);
+    assert.strictEqual(manager1.counter, manager2.counter);
+  });
+
+  test('ParameterManager properties should be readonly at type level', () => {
+    const manager = createParameterManager();
+    
+    // These should be readonly properties - TypeScript will catch attempts to modify
+    assert.ok(Object.hasOwnProperty.call(manager, 'parameters'));
+    assert.ok(Object.hasOwnProperty.call(manager, 'counter'));
   });
 });

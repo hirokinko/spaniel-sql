@@ -51,3 +51,19 @@ export interface QueryResult {
 export interface TableSchema {
   [columnName: string]: SpannerDataType;
 }
+
+/**
+ * Immutable parameter manager for handling query parameters
+ */
+export type ParameterManager = {
+  readonly parameters: Record<string, any>;
+  readonly counter: number;
+};
+
+/**
+ * Creates a new empty parameter manager
+ */
+export const createParameterManager = (): ParameterManager => ({
+  parameters: {},
+  counter: 0,
+});
