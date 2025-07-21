@@ -79,20 +79,18 @@ export const addParameter = (
   value: any
 ): [ParameterManager, string] => {
   // Check if value already exists to reuse parameter
-  const existingParam = Object.entries(manager.parameters).find(
-    ([_, v]) => {
-      // Use strict equality for primitive values and null/undefined
-      if (value === null || value === undefined || typeof value !== 'object') {
-        return v === value;
-      }
-      // For arrays, compare by JSON serialization (simple approach for now)
-      if (Array.isArray(value) && Array.isArray(v)) {
-        return JSON.stringify(value) === JSON.stringify(v);
-      }
-      // For other objects, use strict equality (reference comparison)
+  const existingParam = Object.entries(manager.parameters).find(([_, v]) => {
+    // Use strict equality for primitive values and null/undefined
+    if (value === null || value === undefined || typeof value !== "object") {
       return v === value;
     }
-  )?.[0];
+    // For arrays, compare by JSON serialization (simple approach for now)
+    if (Array.isArray(value) && Array.isArray(v)) {
+      return JSON.stringify(value) === JSON.stringify(v);
+    }
+    // For other objects, use strict equality (reference comparison)
+    return v === value;
+  })?.[0];
 
   if (existingParam) {
     return [manager, `@${existingParam}`];
@@ -160,14 +158,16 @@ export type ConditionNode = Condition | ConditionGroup;
  * Type guard to check if a node is a Condition
  */
 export const isCondition = (node: ConditionNode): node is Condition => {
-  return 'column' in node;
+  return "column" in node;
 };
 
 /**
  * Type guard to check if a node is a ConditionGroup
  */
-export const isConditionGroup = (node: ConditionNode): node is ConditionGroup => {
-  return 'conditions' in node;
+export const isConditionGroup = (
+  node: ConditionNode
+): node is ConditionGroup => {
+  return "conditions" in node;
 };
 
 /**
@@ -351,7 +351,9 @@ export const createIsNotNullCondition = (column: string): Condition => ({
 /**
  * Creates a condition group with AND logic
  */
-export const createAndGroup = (conditions: ConditionNode[]): ConditionGroup => ({
+export const createAndGroup = (
+  conditions: ConditionNode[]
+): ConditionGroup => ({
   type: "and",
   conditions,
 });
@@ -363,3 +365,39 @@ export const createOrGroup = (conditions: ConditionNode[]): ConditionGroup => ({
   type: "or",
   conditions,
 });
+
+/**
+ * Generates SQL string for a basic comparison condition
+ * Handles null value special cases (IS NULL, IS NOT NULL)
+ * @param condition - The comparison condition to convert to SQL
+ * @returns SQL string representation of the condition
+ */
+export const generateComparisonSql = (condition: Condition): string => {
+  if (condition.type !== "comparison") {
+    throw new Error(`Expected comparison condition, got ${condition.type}`);
+  }
+
+  const { column, operator, value, parameterName } = condition;
+
+  // Handle null value special cases
+  if (value === null) {
+    if (operator === "=") {
+      return `${column} IS NULL`;
+    } else if (operator === "!=") {
+      return `${column} IS NOT NULL`;
+    } else {
+      // For other operators with null, use standard parameterized form
+      // This allows Cloud Spanner to handle null comparisons according to SQL semantics
+      return `${column} ${operator} ${parameterName}`;
+    }
+  }
+
+  // Standard parameterized comparison
+  if (!parameterName) {
+    throw new Error(
+      "Parameter name is required for non-null comparison conditions"
+    );
+  }
+
+  return `${column} ${operator} ${parameterName}`;
+};

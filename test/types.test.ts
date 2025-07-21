@@ -33,6 +33,7 @@ import {
   createIsNotNullCondition,
   createAndGroup,
   createOrGroup,
+  generateComparisonSql,
 } from "../src/types";
 
 describe("Core Types", () => {
@@ -705,5 +706,210 @@ describe("Condition Group Creation", () => {
     assert.strictEqual(group.type, "and");
     assert.strictEqual(group.conditions.length, 1);
     assert.strictEqual(group.conditions[0], condition);
+  });
+});
+describe("SQL Generation for Basic Comparison Conditions", () => {
+  test("generateComparisonSql should generate standard parameterized SQL for non-null values", () => {
+    const condition = createEqCondition("age", 25, "@param1");
+    const sql = generateComparisonSql(condition);
+    
+    assert.strictEqual(sql, "age = @param1");
+  });
+
+  test("generateComparisonSql should handle all comparison operators", () => {
+    const operators: ComparisonOperator[] = ["=", "!=", "<", ">", "<=", ">="];
+    
+    operators.forEach((operator) => {
+      const condition = createComparisonCondition("score", operator, 100, "@param1");
+      const sql = generateComparisonSql(condition);
+      
+      assert.strictEqual(sql, `score ${operator} @param1`);
+    });
+  });
+
+  test("generateComparisonSql should handle null values with equality operator", () => {
+    const condition = createEqCondition("deleted_at", null, "@param1");
+    const sql = generateComparisonSql(condition);
+    
+    assert.strictEqual(sql, "deleted_at IS NULL");
+  });
+
+  test("generateComparisonSql should handle null values with inequality operator", () => {
+    const condition = createNeCondition("deleted_at", null, "@param1");
+    const sql = generateComparisonSql(condition);
+    
+    assert.strictEqual(sql, "deleted_at IS NOT NULL");
+  });
+
+  test("generateComparisonSql should use parameterized form for null with other operators", () => {
+    const operators: ComparisonOperator[] = ["<", ">", "<=", ">="];
+    
+    operators.forEach((operator) => {
+      const condition = createComparisonCondition("value", operator, null, "@param1");
+      const sql = generateComparisonSql(condition);
+      
+      // For other operators with null, use standard parameterized form
+      // This allows Cloud Spanner to handle null comparisons according to SQL semantics
+      assert.strictEqual(sql, `value ${operator} @param1`);
+    });
+  });
+
+  test("generateComparisonSql should handle different data types", () => {
+    const testCases = [
+      { value: "string-value", expected: "name = @param1" },
+      { value: 42, expected: "age = @param1" },
+      { value: 3.14, expected: "price = @param1" },
+      { value: true, expected: "active = @param1" },
+      { value: false, expected: "deleted = @param1" },
+    ];
+
+    testCases.forEach(({ value, expected }) => {
+      const condition = createEqCondition("name", value, "@param1");
+      // Update column name for each test case
+      condition.column = expected.split(" ")[0];
+      const sql = generateComparisonSql(condition);
+      
+      assert.strictEqual(sql, expected);
+    });
+  });
+
+  test("generateComparisonSql should handle column names with special characters", () => {
+    const condition = createEqCondition("user_name", "John", "@param1");
+    const sql = generateComparisonSql(condition);
+    
+    assert.strictEqual(sql, "user_name = @param1");
+  });
+
+  test("generateComparisonSql should handle parameter names with different formats", () => {
+    const testCases = [
+      "@param1",
+      "@param123",
+      "@userParam",
+      "@param_with_underscore",
+    ];
+
+    testCases.forEach((paramName) => {
+      const condition = createEqCondition("column", "value", paramName);
+      const sql = generateComparisonSql(condition);
+      
+      assert.strictEqual(sql, `column = ${paramName}`);
+    });
+  });
+
+  test("generateComparisonSql should throw error for non-comparison condition types", () => {
+    const nonComparisonCondition: Condition = {
+      type: "in",
+      column: "status",
+      operator: "IN",
+      values: ["active", "pending"],
+      parameterNames: ["@param1", "@param2"],
+    };
+
+    assert.throws(
+      () => generateComparisonSql(nonComparisonCondition),
+      {
+        name: "Error",
+        message: "Expected comparison condition, got in",
+      }
+    );
+  });
+
+  test("generateComparisonSql should throw error when parameter name is missing for non-null values", () => {
+    const condition: Condition = {
+      type: "comparison",
+      column: "age",
+      operator: "=",
+      value: 25,
+      // parameterName is undefined
+    };
+
+    assert.throws(
+      () => generateComparisonSql(condition),
+      {
+        name: "Error",
+        message: "Parameter name is required for non-null comparison conditions",
+      }
+    );
+  });
+
+  test("generateComparisonSql should handle edge cases with empty strings", () => {
+    const condition = createEqCondition("description", "", "@param1");
+    const sql = generateComparisonSql(condition);
+    
+    assert.strictEqual(sql, "description = @param1");
+  });
+
+  test("generateComparisonSql should handle zero values correctly", () => {
+    const condition = createEqCondition("count", 0, "@param1");
+    const sql = generateComparisonSql(condition);
+    
+    assert.strictEqual(sql, "count = @param1");
+  });
+
+  test("generateComparisonSql should handle undefined values as non-null", () => {
+    const condition = createEqCondition("optional_field", undefined, "@param1");
+    const sql = generateComparisonSql(condition);
+    
+    // undefined should be treated as a regular value, not as null
+    assert.strictEqual(sql, "optional_field = @param1");
+  });
+
+  test("generateComparisonSql should work with all comparison condition creation helpers", () => {
+    const testCases = [
+      { creator: createEqCondition, operator: "=" },
+      { creator: createNeCondition, operator: "!=" },
+      { creator: createGtCondition, operator: ">" },
+      { creator: createLtCondition, operator: "<" },
+      { creator: createGeCondition, operator: ">=" },
+      { creator: createLeCondition, operator: "<=" },
+    ];
+
+    testCases.forEach(({ creator, operator }) => {
+      const condition = creator("score", 100, "@param1");
+      const sql = generateComparisonSql(condition);
+      
+      assert.strictEqual(sql, `score ${operator} @param1`);
+    });
+  });
+
+  test("generateComparisonSql should handle complex column names", () => {
+    const testCases = [
+      "simple_column",
+      "CamelCaseColumn",
+      "column123",
+      "column_with_multiple_underscores",
+      "a",
+      "very_long_column_name_that_might_be_used_in_practice",
+    ];
+
+    testCases.forEach((columnName) => {
+      const condition = createEqCondition(columnName, "value", "@param1");
+      const sql = generateComparisonSql(condition);
+      
+      assert.strictEqual(sql, `${columnName} = @param1`);
+    });
+  });
+
+  test("generateComparisonSql should maintain consistency with null handling across operators", () => {
+    // Test that = with null becomes IS NULL
+    const eqNullCondition = createEqCondition("field", null, "@param1");
+    assert.strictEqual(generateComparisonSql(eqNullCondition), "field IS NULL");
+
+    // Test that != with null becomes IS NOT NULL
+    const neNullCondition = createNeCondition("field", null, "@param1");
+    assert.strictEqual(generateComparisonSql(neNullCondition), "field IS NOT NULL");
+
+    // Test that other operators with null use parameterized form
+    const gtNullCondition = createGtCondition("field", null, "@param1");
+    assert.strictEqual(generateComparisonSql(gtNullCondition), "field > @param1");
+
+    const ltNullCondition = createLtCondition("field", null, "@param1");
+    assert.strictEqual(generateComparisonSql(ltNullCondition), "field < @param1");
+
+    const geNullCondition = createGeCondition("field", null, "@param1");
+    assert.strictEqual(generateComparisonSql(geNullCondition), "field >= @param1");
+
+    const leNullCondition = createLeCondition("field", null, "@param1");
+    assert.strictEqual(generateComparisonSql(leNullCondition), "field <= @param1");
   });
 });

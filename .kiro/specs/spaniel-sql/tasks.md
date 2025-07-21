@@ -40,7 +40,7 @@
 
 - [ ] 4. Implement SQL generation from condition tree
 
-  - [ ] 4.1 Create SQL generator for basic comparison conditions
+  - [x] 4.1 Create SQL generator for basic comparison conditions
 
     - Write function to convert comparison conditions to SQL strings
     - Handle null value special cases (IS NULL, IS NOT NULL)
