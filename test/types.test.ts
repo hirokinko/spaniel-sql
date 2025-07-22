@@ -26,6 +26,7 @@ import {
   createOrGroup,
   createParameterManager,
   createStartsWithCondition,
+  createWhere,
   generateComparisonSql,
   generateConditionSql,
   generateFunctionSql,
@@ -41,6 +42,7 @@ import {
   type SpannerDataType,
   type SpannerTypeHint,
   type TableSchema,
+  type WhereBuilder,
 } from "../src/types";
 
 describe("Core Types", () => {
@@ -1633,5 +1635,137 @@ describe("Unified SQL Generation", () => {
     const sql = generateConditionSql(group);
 
     assert.strictEqual(sql, "(deleted_at IS NULL OR created_at IS NOT NULL)");
+  });
+});
+
+describe("WhereBuilder Factory", () => {
+  test("createWhere should return WhereBuilder instance", () => {
+    const builder = createWhere();
+
+    assert.ok(typeof builder === "object");
+    assert.ok(builder !== null);
+
+    // Should have all required methods
+    assert.ok(typeof builder.eq === "function");
+    assert.ok(typeof builder.ne === "function");
+    assert.ok(typeof builder.lt === "function");
+    assert.ok(typeof builder.gt === "function");
+    assert.ok(typeof builder.le === "function");
+    assert.ok(typeof builder.ge === "function");
+    assert.ok(typeof builder.in === "function");
+    assert.ok(typeof builder.notIn === "function");
+    assert.ok(typeof builder.like === "function");
+    assert.ok(typeof builder.notLike === "function");
+    assert.ok(typeof builder.startsWith === "function");
+    assert.ok(typeof builder.endsWith === "function");
+    assert.ok(typeof builder.isNull === "function");
+    assert.ok(typeof builder.isNotNull === "function");
+    assert.ok(typeof builder.and === "function");
+    assert.ok(typeof builder.or === "function");
+    assert.ok(typeof builder.build === "function");
+  });
+
+  test("createWhere should initialize empty condition tree", () => {
+    const builder = createWhere();
+
+    // Should have empty AND condition group
+    assert.ok(isConditionGroup(builder._conditions));
+    assert.strictEqual(builder._conditions.type, "and");
+    assert.ok(Array.isArray(builder._conditions.conditions));
+    assert.strictEqual(builder._conditions.conditions.length, 0);
+  });
+
+  test("createWhere should initialize empty parameter manager", () => {
+    const builder = createWhere();
+
+    // Should have empty parameter manager
+    assert.ok(typeof builder._parameters === "object");
+    assert.ok(builder._parameters !== null);
+    assert.deepStrictEqual(builder._parameters.parameters, {});
+    assert.strictEqual(builder._parameters.counter, 0);
+  });
+
+  test("createWhere should return new instance each time", () => {
+    const builder1 = createWhere();
+    const builder2 = createWhere();
+
+    // Should be different instances
+    assert.notStrictEqual(builder1, builder2);
+
+    // But should have equivalent initial state
+    assert.deepStrictEqual(builder1._conditions, builder2._conditions);
+    assert.deepStrictEqual(builder1._parameters, builder2._parameters);
+  });
+
+  test("createWhere should support generic type parameter", () => {
+    interface User {
+      id: number;
+      name: string;
+      active: boolean;
+    }
+
+    const builder = createWhere<User>();
+
+    // TypeScript should enforce column types at compile time
+    // This test verifies the builder can be created with type parameter
+    assert.ok(typeof builder === "object");
+    assert.ok(builder !== null);
+  });
+
+  test("createWhere should work without type parameter", () => {
+    const builder = createWhere();
+
+    // Should work with any column names when no type parameter is provided
+    assert.ok(typeof builder === "object");
+    assert.ok(builder !== null);
+  });
+
+  test("createWhere methods should throw 'Not implemented yet' errors", () => {
+    const builder = createWhere();
+
+    // All methods should throw "Not implemented yet" errors since they're placeholders
+    assert.throws(() => builder.eq("column", "value"), /Not implemented yet/);
+    assert.throws(() => builder.ne("column", "value"), /Not implemented yet/);
+    assert.throws(() => builder.lt("column", "value"), /Not implemented yet/);
+    assert.throws(() => builder.gt("column", "value"), /Not implemented yet/);
+    assert.throws(() => builder.le("column", "value"), /Not implemented yet/);
+    assert.throws(() => builder.ge("column", "value"), /Not implemented yet/);
+    assert.throws(() => builder.in("column", ["value"]), /Not implemented yet/);
+    assert.throws(() => builder.notIn("column", ["value"]), /Not implemented yet/);
+    assert.throws(() => builder.like("column", "pattern"), /Not implemented yet/);
+    assert.throws(() => builder.notLike("column", "pattern"), /Not implemented yet/);
+    assert.throws(() => builder.startsWith("column", "prefix"), /Not implemented yet/);
+    assert.throws(() => builder.endsWith("column", "suffix"), /Not implemented yet/);
+    assert.throws(() => builder.isNull("column"), /Not implemented yet/);
+    assert.throws(() => builder.isNotNull("column"), /Not implemented yet/);
+    assert.throws(() => builder.and(() => builder), /Not implemented yet/);
+    assert.throws(() => builder.or(() => builder), /Not implemented yet/);
+    assert.throws(() => builder.build(), /Not implemented yet/);
+  });
+
+  test("WhereBuilder should have readonly properties", () => {
+    const builder = createWhere();
+
+    // Properties should exist and be accessible
+    assert.ok(Object.hasOwn(builder, "_conditions"));
+    assert.ok(Object.hasOwn(builder, "_parameters"));
+
+    // TypeScript should enforce readonly at compile time
+    // Runtime verification that properties exist
+    assert.ok(builder._conditions !== undefined);
+    assert.ok(builder._parameters !== undefined);
+  });
+
+  test("createWhere should maintain immutability principle", () => {
+    const builder1 = createWhere();
+    const builder2 = createWhere();
+
+    // Each instance should have its own condition tree and parameter manager
+    assert.notStrictEqual(builder1._conditions, builder2._conditions);
+    assert.notStrictEqual(builder1._parameters, builder2._parameters);
+
+    // But they should have equivalent content
+    assert.deepStrictEqual(builder1._conditions, builder2._conditions);
+    assert.deepStrictEqual(builder1._parameters, builder2._parameters);
   });
 });

@@ -575,3 +575,141 @@ export const generateLogicalSql = (group: ConditionGroup): string => {
   // Wrap in parentheses for proper grouping
   return `(${joinedSql})`;
 };
+
+/**
+ * WhereBuilder type - immutable object with fluent interface methods
+ */
+export type WhereBuilder<T = any> = {
+  readonly _conditions: ConditionGroup;
+  readonly _parameters: ParameterManager;
+
+  // Basic comparisons
+  eq<K extends keyof T>(column: K, value: T[K]): WhereBuilder<T>;
+  ne<K extends keyof T>(column: K, value: T[K]): WhereBuilder<T>;
+  lt<K extends keyof T>(column: K, value: T[K]): WhereBuilder<T>;
+  gt<K extends keyof T>(column: K, value: T[K]): WhereBuilder<T>;
+  le<K extends keyof T>(column: K, value: T[K]): WhereBuilder<T>;
+  ge<K extends keyof T>(column: K, value: T[K]): WhereBuilder<T>;
+
+  // Array operations
+  in<K extends keyof T>(column: K, values: T[K][]): WhereBuilder<T>;
+  notIn<K extends keyof T>(column: K, values: T[K][]): WhereBuilder<T>;
+
+  // String operations
+  like<K extends keyof T>(column: K, pattern: string): WhereBuilder<T>;
+  notLike<K extends keyof T>(column: K, pattern: string): WhereBuilder<T>;
+  startsWith<K extends keyof T>(column: K, prefix: string): WhereBuilder<T>;
+  endsWith<K extends keyof T>(column: K, suffix: string): WhereBuilder<T>;
+
+  // Null checks
+  isNull<K extends keyof T>(column: K): WhereBuilder<T>;
+  isNotNull<K extends keyof T>(column: K): WhereBuilder<T>;
+
+  // Logical operators
+  and(...conditions: ((builder: WhereBuilder<T>) => WhereBuilder<T>)[]): WhereBuilder<T>;
+  or(...conditions: ((builder: WhereBuilder<T>) => WhereBuilder<T>)[]): WhereBuilder<T>;
+
+  // Build final query
+  build(): QueryResult;
+};
+
+/**
+ * Creates a new WhereBuilder instance with empty condition tree and parameter manager
+ * @returns A new WhereBuilder instance
+ */
+export const createWhere = <T = any>(): WhereBuilder<T> => {
+  const emptyConditions = createAndGroup([]);
+  const emptyParameters = createParameterManager();
+
+  const builder: WhereBuilder<T> = {
+    _conditions: emptyConditions,
+    _parameters: emptyParameters,
+
+    eq<K extends keyof T>(_column: K, _value: T[K]): WhereBuilder<T> {
+      // Implementation will be added in subsequent tasks
+      throw new Error("Not implemented yet");
+    },
+
+    ne<K extends keyof T>(_column: K, _value: T[K]): WhereBuilder<T> {
+      // Implementation will be added in subsequent tasks
+      throw new Error("Not implemented yet");
+    },
+
+    lt<K extends keyof T>(_column: K, _value: T[K]): WhereBuilder<T> {
+      // Implementation will be added in subsequent tasks
+      throw new Error("Not implemented yet");
+    },
+
+    gt<K extends keyof T>(_column: K, _value: T[K]): WhereBuilder<T> {
+      // Implementation will be added in subsequent tasks
+      throw new Error("Not implemented yet");
+    },
+
+    le<K extends keyof T>(_column: K, _value: T[K]): WhereBuilder<T> {
+      // Implementation will be added in subsequent tasks
+      throw new Error("Not implemented yet");
+    },
+
+    ge<K extends keyof T>(_column: K, _value: T[K]): WhereBuilder<T> {
+      // Implementation will be added in subsequent tasks
+      throw new Error("Not implemented yet");
+    },
+
+    in<K extends keyof T>(_column: K, _values: T[K][]): WhereBuilder<T> {
+      // Implementation will be added in subsequent tasks
+      throw new Error("Not implemented yet");
+    },
+
+    notIn<K extends keyof T>(_column: K, _values: T[K][]): WhereBuilder<T> {
+      // Implementation will be added in subsequent tasks
+      throw new Error("Not implemented yet");
+    },
+
+    like<K extends keyof T>(_column: K, _pattern: string): WhereBuilder<T> {
+      // Implementation will be added in subsequent tasks
+      throw new Error("Not implemented yet");
+    },
+
+    notLike<K extends keyof T>(_column: K, _pattern: string): WhereBuilder<T> {
+      // Implementation will be added in subsequent tasks
+      throw new Error("Not implemented yet");
+    },
+
+    startsWith<K extends keyof T>(_column: K, _prefix: string): WhereBuilder<T> {
+      // Implementation will be added in subsequent tasks
+      throw new Error("Not implemented yet");
+    },
+
+    endsWith<K extends keyof T>(_column: K, _suffix: string): WhereBuilder<T> {
+      // Implementation will be added in subsequent tasks
+      throw new Error("Not implemented yet");
+    },
+
+    isNull<K extends keyof T>(_column: K): WhereBuilder<T> {
+      // Implementation will be added in subsequent tasks
+      throw new Error("Not implemented yet");
+    },
+
+    isNotNull<K extends keyof T>(_column: K): WhereBuilder<T> {
+      // Implementation will be added in subsequent tasks
+      throw new Error("Not implemented yet");
+    },
+
+    and(..._conditions: ((builder: WhereBuilder<T>) => WhereBuilder<T>)[]): WhereBuilder<T> {
+      // Implementation will be added in subsequent tasks
+      throw new Error("Not implemented yet");
+    },
+
+    or(..._conditions: ((builder: WhereBuilder<T>) => WhereBuilder<T>)[]): WhereBuilder<T> {
+      // Implementation will be added in subsequent tasks
+      throw new Error("Not implemented yet");
+    },
+
+    build(): QueryResult {
+      // Implementation will be added in subsequent tasks
+      throw new Error("Not implemented yet");
+    },
+  };
+
+  return builder;
+};

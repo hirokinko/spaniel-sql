@@ -38,7 +38,7 @@
     - Write unit tests for condition creation functions
     - _Requirements: 2.1, 2.2, 3.1, 3.2, 4.1, 4.2_
 
-- [ ] 4. Implement SQL generation from condition tree
+- [x] 4. Implement SQL generation from condition tree
 
   - [x] 4.1 Create SQL generator for basic comparison conditions
 
@@ -65,7 +65,7 @@
 
 - [ ] 5. Create WhereBuilder factory and core methods
 
-  - [ ] 5.1 Implement createWhere factory function
+  - [x] 5.1 Implement createWhere factory function
 
     - Write createWhere factory function that returns WhereBuilder instance
     - Initialize empty condition tree and parameter manager
