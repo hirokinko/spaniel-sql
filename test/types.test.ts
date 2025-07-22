@@ -1,39 +1,38 @@
-import { test, describe } from "node:test";
 import assert from "node:assert";
+import { describe, test } from "node:test";
 import {
-  SpannerDataType,
-  ComparisonOperator,
-  QueryResult,
-  TableSchema,
-  SpannerTypeHint,
-  ParameterManager,
-  createParameterManager,
   addParameter,
-  Condition,
-  ConditionGroup,
-  ConditionNode,
-  ConditionType,
-  LogicalOperator,
+  type ComparisonOperator,
+  type Condition,
+  type ConditionGroup,
+  type ConditionType,
+  createAndGroup,
+  createComparisonCondition,
+  createEndsWithCondition,
+  createEqCondition,
+  createGeCondition,
+  createGtCondition,
+  createInCondition,
+  createIsNotNullCondition,
+  createIsNullCondition,
+  createLeCondition,
+  createLikeCondition,
+  createLtCondition,
+  createNeCondition,
+  createNotInCondition,
+  createNotLikeCondition,
+  createOrGroup,
+  createParameterManager,
+  createStartsWithCondition,
+  generateComparisonSql,
   isCondition,
   isConditionGroup,
-  createComparisonCondition,
-  createEqCondition,
-  createNeCondition,
-  createGtCondition,
-  createLtCondition,
-  createGeCondition,
-  createLeCondition,
-  createInCondition,
-  createNotInCondition,
-  createLikeCondition,
-  createNotLikeCondition,
-  createStartsWithCondition,
-  createEndsWithCondition,
-  createIsNullCondition,
-  createIsNotNullCondition,
-  createAndGroup,
-  createOrGroup,
-  generateComparisonSql,
+  type LogicalOperator,
+  type ParameterManager,
+  type QueryResult,
+  type SpannerDataType,
+  type SpannerTypeHint,
+  type TableSchema,
 } from "../src/types";
 
 describe("Core Types", () => {
@@ -56,14 +55,7 @@ describe("Core Types", () => {
   });
 
   test("ComparisonOperator should include all supported operators", () => {
-    const validOperators: ComparisonOperator[] = [
-      "=",
-      "!=",
-      "<",
-      ">",
-      "<=",
-      ">=",
-    ];
+    const validOperators: ComparisonOperator[] = ["=", "!=", "<", ">", "<=", ">="];
 
     validOperators.forEach((op) => {
       assert.ok(typeof op === "string");
@@ -175,8 +167,8 @@ describe("ParameterManager", () => {
     const manager = createParameterManager();
 
     // These should be readonly properties - TypeScript will catch attempts to modify
-    assert.ok(Object.hasOwnProperty.call(manager, "parameters"));
-    assert.ok(Object.hasOwnProperty.call(manager, "counter"));
+    assert.ok(Object.hasOwn(manager, "parameters"));
+    assert.ok(Object.hasOwn(manager, "counter"));
   });
 });
 
@@ -372,13 +364,7 @@ describe("addParameter", () => {
 });
 describe("Condition Types", () => {
   test("ConditionType should include all supported types", () => {
-    const validTypes: ConditionType[] = [
-      "comparison",
-      "in",
-      "like",
-      "null",
-      "function",
-    ];
+    const validTypes: ConditionType[] = ["comparison", "in", "like", "null", "function"];
 
     validTypes.forEach((type) => {
       assert.ok(typeof type === "string");
@@ -617,11 +603,7 @@ describe("String Pattern Condition Creation", () => {
   });
 
   test("createEndsWithCondition should create ENDS_WITH function condition", () => {
-    const condition = createEndsWithCondition(
-      "email",
-      "@example.com",
-      "@param1"
-    );
+    const condition = createEndsWithCondition("email", "@example.com", "@param1");
 
     assert.strictEqual(condition.type, "function");
     assert.strictEqual(condition.column, "email");
@@ -712,17 +694,17 @@ describe("SQL Generation for Basic Comparison Conditions", () => {
   test("generateComparisonSql should generate standard parameterized SQL for non-null values", () => {
     const condition = createEqCondition("age", 25, "@param1");
     const sql = generateComparisonSql(condition);
-    
+
     assert.strictEqual(sql, "age = @param1");
   });
 
   test("generateComparisonSql should handle all comparison operators", () => {
     const operators: ComparisonOperator[] = ["=", "!=", "<", ">", "<=", ">="];
-    
+
     operators.forEach((operator) => {
       const condition = createComparisonCondition("score", operator, 100, "@param1");
       const sql = generateComparisonSql(condition);
-      
+
       assert.strictEqual(sql, `score ${operator} @param1`);
     });
   });
@@ -730,24 +712,24 @@ describe("SQL Generation for Basic Comparison Conditions", () => {
   test("generateComparisonSql should handle null values with equality operator", () => {
     const condition = createEqCondition("deleted_at", null, "@param1");
     const sql = generateComparisonSql(condition);
-    
+
     assert.strictEqual(sql, "deleted_at IS NULL");
   });
 
   test("generateComparisonSql should handle null values with inequality operator", () => {
     const condition = createNeCondition("deleted_at", null, "@param1");
     const sql = generateComparisonSql(condition);
-    
+
     assert.strictEqual(sql, "deleted_at IS NOT NULL");
   });
 
   test("generateComparisonSql should use parameterized form for null with other operators", () => {
     const operators: ComparisonOperator[] = ["<", ">", "<=", ">="];
-    
+
     operators.forEach((operator) => {
       const condition = createComparisonCondition("value", operator, null, "@param1");
       const sql = generateComparisonSql(condition);
-      
+
       // For other operators with null, use standard parameterized form
       // This allows Cloud Spanner to handle null comparisons according to SQL semantics
       assert.strictEqual(sql, `value ${operator} @param1`);
@@ -768,7 +750,7 @@ describe("SQL Generation for Basic Comparison Conditions", () => {
       // Update column name for each test case
       condition.column = expected.split(" ")[0];
       const sql = generateComparisonSql(condition);
-      
+
       assert.strictEqual(sql, expected);
     });
   });
@@ -776,22 +758,17 @@ describe("SQL Generation for Basic Comparison Conditions", () => {
   test("generateComparisonSql should handle column names with special characters", () => {
     const condition = createEqCondition("user_name", "John", "@param1");
     const sql = generateComparisonSql(condition);
-    
+
     assert.strictEqual(sql, "user_name = @param1");
   });
 
   test("generateComparisonSql should handle parameter names with different formats", () => {
-    const testCases = [
-      "@param1",
-      "@param123",
-      "@userParam",
-      "@param_with_underscore",
-    ];
+    const testCases = ["@param1", "@param123", "@userParam", "@param_with_underscore"];
 
     testCases.forEach((paramName) => {
       const condition = createEqCondition("column", "value", paramName);
       const sql = generateComparisonSql(condition);
-      
+
       assert.strictEqual(sql, `column = ${paramName}`);
     });
   });
@@ -805,13 +782,10 @@ describe("SQL Generation for Basic Comparison Conditions", () => {
       parameterNames: ["@param1", "@param2"],
     };
 
-    assert.throws(
-      () => generateComparisonSql(nonComparisonCondition),
-      {
-        name: "Error",
-        message: "Expected comparison condition, got in",
-      }
-    );
+    assert.throws(() => generateComparisonSql(nonComparisonCondition), {
+      name: "Error",
+      message: "Expected comparison condition, got in",
+    });
   });
 
   test("generateComparisonSql should throw error when parameter name is missing for non-null values", () => {
@@ -823,33 +797,30 @@ describe("SQL Generation for Basic Comparison Conditions", () => {
       // parameterName is undefined
     };
 
-    assert.throws(
-      () => generateComparisonSql(condition),
-      {
-        name: "Error",
-        message: "Parameter name is required for non-null comparison conditions",
-      }
-    );
+    assert.throws(() => generateComparisonSql(condition), {
+      name: "Error",
+      message: "Parameter name is required for non-null comparison conditions",
+    });
   });
 
   test("generateComparisonSql should handle edge cases with empty strings", () => {
     const condition = createEqCondition("description", "", "@param1");
     const sql = generateComparisonSql(condition);
-    
+
     assert.strictEqual(sql, "description = @param1");
   });
 
   test("generateComparisonSql should handle zero values correctly", () => {
     const condition = createEqCondition("count", 0, "@param1");
     const sql = generateComparisonSql(condition);
-    
+
     assert.strictEqual(sql, "count = @param1");
   });
 
   test("generateComparisonSql should handle undefined values as non-null", () => {
     const condition = createEqCondition("optional_field", undefined, "@param1");
     const sql = generateComparisonSql(condition);
-    
+
     // undefined should be treated as a regular value, not as null
     assert.strictEqual(sql, "optional_field = @param1");
   });
@@ -867,7 +838,7 @@ describe("SQL Generation for Basic Comparison Conditions", () => {
     testCases.forEach(({ creator, operator }) => {
       const condition = creator("score", 100, "@param1");
       const sql = generateComparisonSql(condition);
-      
+
       assert.strictEqual(sql, `score ${operator} @param1`);
     });
   });
@@ -885,7 +856,7 @@ describe("SQL Generation for Basic Comparison Conditions", () => {
     testCases.forEach((columnName) => {
       const condition = createEqCondition(columnName, "value", "@param1");
       const sql = generateComparisonSql(condition);
-      
+
       assert.strictEqual(sql, `${columnName} = @param1`);
     });
   });

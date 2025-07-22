@@ -74,10 +74,7 @@ export const createParameterManager = (): ParameterManager => ({
  * @param value - The value to add as a parameter
  * @returns A tuple containing the new manager and the parameter name (with @ prefix)
  */
-export const addParameter = (
-  manager: ParameterManager,
-  value: any
-): [ParameterManager, string] => {
+export const addParameter = (manager: ParameterManager, value: any): [ParameterManager, string] => {
   // Check if value already exists to reuse parameter
   const existingParam = Object.entries(manager.parameters).find(([_, v]) => {
     // Use strict equality for primitive values and null/undefined
@@ -164,9 +161,7 @@ export const isCondition = (node: ConditionNode): node is Condition => {
 /**
  * Type guard to check if a node is a ConditionGroup
  */
-export const isConditionGroup = (
-  node: ConditionNode
-): node is ConditionGroup => {
+export const isConditionGroup = (node: ConditionNode): node is ConditionGroup => {
   return "conditions" in node;
 };
 
@@ -189,56 +184,38 @@ export const createComparisonCondition = (
 /**
  * Creates an equality condition (=)
  */
-export const createEqCondition = (
-  column: string,
-  value: any,
-  parameterName: string
-): Condition => createComparisonCondition(column, "=", value, parameterName);
+export const createEqCondition = (column: string, value: any, parameterName: string): Condition =>
+  createComparisonCondition(column, "=", value, parameterName);
 
 /**
  * Creates a not-equal condition (!=)
  */
-export const createNeCondition = (
-  column: string,
-  value: any,
-  parameterName: string
-): Condition => createComparisonCondition(column, "!=", value, parameterName);
+export const createNeCondition = (column: string, value: any, parameterName: string): Condition =>
+  createComparisonCondition(column, "!=", value, parameterName);
 
 /**
  * Creates a greater-than condition (>)
  */
-export const createGtCondition = (
-  column: string,
-  value: any,
-  parameterName: string
-): Condition => createComparisonCondition(column, ">", value, parameterName);
+export const createGtCondition = (column: string, value: any, parameterName: string): Condition =>
+  createComparisonCondition(column, ">", value, parameterName);
 
 /**
  * Creates a less-than condition (<)
  */
-export const createLtCondition = (
-  column: string,
-  value: any,
-  parameterName: string
-): Condition => createComparisonCondition(column, "<", value, parameterName);
+export const createLtCondition = (column: string, value: any, parameterName: string): Condition =>
+  createComparisonCondition(column, "<", value, parameterName);
 
 /**
  * Creates a greater-than-or-equal condition (>=)
  */
-export const createGeCondition = (
-  column: string,
-  value: any,
-  parameterName: string
-): Condition => createComparisonCondition(column, ">=", value, parameterName);
+export const createGeCondition = (column: string, value: any, parameterName: string): Condition =>
+  createComparisonCondition(column, ">=", value, parameterName);
 
 /**
  * Creates a less-than-or-equal condition (<=)
  */
-export const createLeCondition = (
-  column: string,
-  value: any,
-  parameterName: string
-): Condition => createComparisonCondition(column, "<=", value, parameterName);
+export const createLeCondition = (column: string, value: any, parameterName: string): Condition =>
+  createComparisonCondition(column, "<=", value, parameterName);
 
 /**
  * Creates an IN condition
@@ -351,9 +328,7 @@ export const createIsNotNullCondition = (column: string): Condition => ({
 /**
  * Creates a condition group with AND logic
  */
-export const createAndGroup = (
-  conditions: ConditionNode[]
-): ConditionGroup => ({
+export const createAndGroup = (conditions: ConditionNode[]): ConditionGroup => ({
   type: "and",
   conditions,
 });
@@ -394,9 +369,7 @@ export const generateComparisonSql = (condition: Condition): string => {
 
   // Standard parameterized comparison
   if (!parameterName) {
-    throw new Error(
-      "Parameter name is required for non-null comparison conditions"
-    );
+    throw new Error("Parameter name is required for non-null comparison conditions");
   }
 
   return `${column} ${operator} ${parameterName}`;
