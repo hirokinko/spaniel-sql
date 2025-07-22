@@ -74,7 +74,10 @@ export const createParameterManager = (): ParameterManager => ({
  * @param value - The value to add as a parameter
  * @returns A tuple containing the new manager and the parameter name (with @ prefix)
  */
-export const addParameter = (manager: ParameterManager, value: any): [ParameterManager, string] => {
+export const addParameter = (
+  manager: ParameterManager,
+  value: any
+): [ParameterManager, string] => {
   // Check if value already exists to reuse parameter
   const existingParam = Object.entries(manager.parameters).find(([_, v]) => {
     // Use strict equality for primitive values and null/undefined
@@ -161,7 +164,9 @@ export const isCondition = (node: ConditionNode): node is Condition => {
 /**
  * Type guard to check if a node is a ConditionGroup
  */
-export const isConditionGroup = (node: ConditionNode): node is ConditionGroup => {
+export const isConditionGroup = (
+  node: ConditionNode
+): node is ConditionGroup => {
   return "conditions" in node;
 };
 
@@ -184,38 +189,56 @@ export const createComparisonCondition = (
 /**
  * Creates an equality condition (=)
  */
-export const createEqCondition = (column: string, value: any, parameterName: string): Condition =>
-  createComparisonCondition(column, "=", value, parameterName);
+export const createEqCondition = (
+  column: string,
+  value: any,
+  parameterName: string
+): Condition => createComparisonCondition(column, "=", value, parameterName);
 
 /**
  * Creates a not-equal condition (!=)
  */
-export const createNeCondition = (column: string, value: any, parameterName: string): Condition =>
-  createComparisonCondition(column, "!=", value, parameterName);
+export const createNeCondition = (
+  column: string,
+  value: any,
+  parameterName: string
+): Condition => createComparisonCondition(column, "!=", value, parameterName);
 
 /**
  * Creates a greater-than condition (>)
  */
-export const createGtCondition = (column: string, value: any, parameterName: string): Condition =>
-  createComparisonCondition(column, ">", value, parameterName);
+export const createGtCondition = (
+  column: string,
+  value: any,
+  parameterName: string
+): Condition => createComparisonCondition(column, ">", value, parameterName);
 
 /**
  * Creates a less-than condition (<)
  */
-export const createLtCondition = (column: string, value: any, parameterName: string): Condition =>
-  createComparisonCondition(column, "<", value, parameterName);
+export const createLtCondition = (
+  column: string,
+  value: any,
+  parameterName: string
+): Condition => createComparisonCondition(column, "<", value, parameterName);
 
 /**
  * Creates a greater-than-or-equal condition (>=)
  */
-export const createGeCondition = (column: string, value: any, parameterName: string): Condition =>
-  createComparisonCondition(column, ">=", value, parameterName);
+export const createGeCondition = (
+  column: string,
+  value: any,
+  parameterName: string
+): Condition => createComparisonCondition(column, ">=", value, parameterName);
 
 /**
  * Creates a less-than-or-equal condition (<=)
  */
-export const createLeCondition = (column: string, value: any, parameterName: string): Condition =>
-  createComparisonCondition(column, "<=", value, parameterName);
+export const createLeCondition = (
+  column: string,
+  value: any,
+  parameterName: string
+): Condition => createComparisonCondition(column, "<=", value, parameterName);
 
 /**
  * Creates an IN condition
@@ -328,7 +351,9 @@ export const createIsNotNullCondition = (column: string): Condition => ({
 /**
  * Creates a condition group with AND logic
  */
-export const createAndGroup = (conditions: ConditionNode[]): ConditionGroup => ({
+export const createAndGroup = (
+  conditions: ConditionNode[]
+): ConditionGroup => ({
   type: "and",
   conditions,
 });
@@ -369,7 +394,9 @@ export const generateComparisonSql = (condition: Condition): string => {
 
   // Standard parameterized comparison
   if (!parameterName) {
-    throw new Error("Parameter name is required for non-null comparison conditions");
+    throw new Error(
+      "Parameter name is required for non-null comparison conditions"
+    );
   }
 
   return `${column} ${operator} ${parameterName}`;
@@ -462,4 +489,78 @@ export const generateNullSql = (condition: Condition): string => {
   const { column, operator } = condition;
 
   return `${column} ${operator}`;
+};
+
+/**
+ * Generates SQL string for any condition node (individual condition or condition group)
+ * This is a unified entry point for SQL generation that handles both conditions and groups
+ * @param node - The condition node to convert to SQL
+ * @returns SQL string representation of the condition node
+ */
+export const generateConditionSql = (node: ConditionNode): string => {
+  if (isCondition(node)) {
+    // Handle individual conditions based on their type
+    switch (node.type) {
+      case "comparison":
+        return generateComparisonSql(node);
+      case "in":
+        return generateInSql(node);
+      case "like":
+        return generateLikeSql(node);
+      case "function":
+        return generateFunctionSql(node);
+      case "null":
+        return generateNullSql(node);
+      default:
+        throw new Error(`Unsupported condition type: ${(node as any).type}`);
+    }
+  } else if (isConditionGroup(node)) {
+    // Handle condition groups recursively
+    return generateLogicalSql(node);
+  } else {
+    throw new Error(
+      "Invalid condition node: must be either Condition or ConditionGroup"
+    );
+  }
+};
+
+/**
+ * Generates SQL string for logical operator condition groups (AND/OR)
+ * Handles proper parentheses for operator precedence and nested groups
+ * @param group - The condition group to convert to SQL
+ * @returns SQL string representation of the condition group
+ */
+export const generateLogicalSql = (group: ConditionGroup): string => {
+  if (!isConditionGroup(group)) {
+    throw new Error("Expected condition group");
+  }
+
+  const { type, conditions } = group;
+
+  // Handle empty condition groups
+  if (conditions.length === 0) {
+    // Return neutral conditions for empty groups
+    return type === "and" ? "TRUE" : "FALSE";
+  }
+
+  // Handle single condition - no parentheses needed
+  if (conditions.length === 1) {
+    const condition = conditions[0];
+    if (!condition) {
+      throw new Error("Invalid condition: condition is undefined");
+    }
+    return generateConditionSql(condition);
+  }
+
+  // Generate SQL for each condition
+  const conditionSqls = conditions.map((condition) =>
+    generateConditionSql(condition)
+  );
+
+  // Join with appropriate logical operator
+  const operator = type.toUpperCase(); // "AND" or "OR"
+  const joinedSql = conditionSqls.join(` ${operator} `);
+
+  // Wrap in parentheses for proper grouping
+  return `(${joinedSql})`;
 };

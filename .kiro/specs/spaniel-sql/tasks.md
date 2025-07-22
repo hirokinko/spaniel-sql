@@ -56,7 +56,7 @@
     - Write unit tests for array and pattern SQL generation
     - _Requirements: 3.1, 3.2, 3.3, 4.1, 4.2, 4.3, 4.4_
 
-  - [ ] 4.3 Implement logical operator SQL generation with proper parentheses
+  - [x] 4.3 Implement logical operator SQL generation with proper parentheses
     - Write function to generate SQL for AND/OR condition groups
     - Implement proper parentheses handling for operator precedence
     - Handle nested condition groups recursively

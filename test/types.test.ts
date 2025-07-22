@@ -29,6 +29,8 @@ import {
   generateLikeSql,
   generateFunctionSql,
   generateNullSql,
+  generateLogicalSql,
+  generateConditionSql,
   isCondition,
   isConditionGroup,
   type LogicalOperator,
@@ -59,7 +61,14 @@ describe("Core Types", () => {
   });
 
   test("ComparisonOperator should include all supported operators", () => {
-    const validOperators: ComparisonOperator[] = ["=", "!=", "<", ">", "<=", ">="];
+    const validOperators: ComparisonOperator[] = [
+      "=",
+      "!=",
+      "<",
+      ">",
+      "<=",
+      ">=",
+    ];
 
     validOperators.forEach((op) => {
       assert.ok(typeof op === "string");
@@ -368,7 +377,13 @@ describe("addParameter", () => {
 });
 describe("Condition Types", () => {
   test("ConditionType should include all supported types", () => {
-    const validTypes: ConditionType[] = ["comparison", "in", "like", "null", "function"];
+    const validTypes: ConditionType[] = [
+      "comparison",
+      "in",
+      "like",
+      "null",
+      "function",
+    ];
 
     validTypes.forEach((type) => {
       assert.ok(typeof type === "string");
@@ -607,7 +622,11 @@ describe("String Pattern Condition Creation", () => {
   });
 
   test("createEndsWithCondition should create ENDS_WITH function condition", () => {
-    const condition = createEndsWithCondition("email", "@example.com", "@param1");
+    const condition = createEndsWithCondition(
+      "email",
+      "@example.com",
+      "@param1"
+    );
 
     assert.strictEqual(condition.type, "function");
     assert.strictEqual(condition.column, "email");
@@ -706,7 +725,12 @@ describe("SQL Generation for Basic Comparison Conditions", () => {
     const operators: ComparisonOperator[] = ["=", "!=", "<", ">", "<=", ">="];
 
     operators.forEach((operator) => {
-      const condition = createComparisonCondition("score", operator, 100, "@param1");
+      const condition = createComparisonCondition(
+        "score",
+        operator,
+        100,
+        "@param1"
+      );
       const sql = generateComparisonSql(condition);
 
       assert.strictEqual(sql, `score ${operator} @param1`);
@@ -731,7 +755,12 @@ describe("SQL Generation for Basic Comparison Conditions", () => {
     const operators: ComparisonOperator[] = ["<", ">", "<=", ">="];
 
     operators.forEach((operator) => {
-      const condition = createComparisonCondition("value", operator, null, "@param1");
+      const condition = createComparisonCondition(
+        "value",
+        operator,
+        null,
+        "@param1"
+      );
       const sql = generateComparisonSql(condition);
 
       // For other operators with null, use standard parameterized form
@@ -767,7 +796,12 @@ describe("SQL Generation for Basic Comparison Conditions", () => {
   });
 
   test("generateComparisonSql should handle parameter names with different formats", () => {
-    const testCases = ["@param1", "@param123", "@userParam", "@param_with_underscore"];
+    const testCases = [
+      "@param1",
+      "@param123",
+      "@userParam",
+      "@param_with_underscore",
+    ];
 
     testCases.forEach((paramName) => {
       const condition = createEqCondition("column", "value", paramName);
@@ -872,20 +906,35 @@ describe("SQL Generation for Basic Comparison Conditions", () => {
 
     // Test that != with null becomes IS NOT NULL
     const neNullCondition = createNeCondition("field", null, "@param1");
-    assert.strictEqual(generateComparisonSql(neNullCondition), "field IS NOT NULL");
+    assert.strictEqual(
+      generateComparisonSql(neNullCondition),
+      "field IS NOT NULL"
+    );
 
     // Test that other operators with null use parameterized form
     const gtNullCondition = createGtCondition("field", null, "@param1");
-    assert.strictEqual(generateComparisonSql(gtNullCondition), "field > @param1");
+    assert.strictEqual(
+      generateComparisonSql(gtNullCondition),
+      "field > @param1"
+    );
 
     const ltNullCondition = createLtCondition("field", null, "@param1");
-    assert.strictEqual(generateComparisonSql(ltNullCondition), "field < @param1");
+    assert.strictEqual(
+      generateComparisonSql(ltNullCondition),
+      "field < @param1"
+    );
 
     const geNullCondition = createGeCondition("field", null, "@param1");
-    assert.strictEqual(generateComparisonSql(geNullCondition), "field >= @param1");
+    assert.strictEqual(
+      generateComparisonSql(geNullCondition),
+      "field >= @param1"
+    );
 
     const leNullCondition = createLeCondition("field", null, "@param1");
-    assert.strictEqual(generateComparisonSql(leNullCondition), "field <= @param1");
+    assert.strictEqual(
+      generateComparisonSql(leNullCondition),
+      "field <= @param1"
+    );
   });
 });
 
@@ -902,14 +951,22 @@ describe("SQL Generation for Array Operations (IN/NOT IN)", () => {
   });
 
   test("generateInSql should generate NOT IN clause with multiple parameters", () => {
-    const condition = createNotInCondition("priority", ["low", "medium"], ["@param1", "@param2"]);
+    const condition = createNotInCondition(
+      "priority",
+      ["low", "medium"],
+      ["@param1", "@param2"]
+    );
     const sql = generateInSql(condition);
 
     assert.strictEqual(sql, "priority NOT IN (@param1, @param2)");
   });
 
   test("generateInSql should handle single value IN clause", () => {
-    const condition = createInCondition("category", ["electronics"], ["@param1"]);
+    const condition = createInCondition(
+      "category",
+      ["electronics"],
+      ["@param1"]
+    );
     const sql = generateInSql(condition);
 
     assert.strictEqual(sql, "category IN (@param1)");
@@ -960,7 +1017,11 @@ describe("SQL Generation for Array Operations (IN/NOT IN)", () => {
   });
 
   test("generateInSql should validate parameter names array length matches values", () => {
-    const condition = createInCondition("status", ["active", "pending"], ["@param1"]); // Mismatched lengths
+    const condition = createInCondition(
+      "status",
+      ["active", "pending"],
+      ["@param1"]
+    ); // Mismatched lengths
 
     assert.throws(() => generateInSql(condition), {
       name: "Error",
@@ -969,7 +1030,11 @@ describe("SQL Generation for Array Operations (IN/NOT IN)", () => {
   });
 
   test("generateInSql should handle numeric values", () => {
-    const condition = createInCondition("age", [18, 25, 30], ["@param1", "@param2", "@param3"]);
+    const condition = createInCondition(
+      "age",
+      [18, 25, 30],
+      ["@param1", "@param2", "@param3"]
+    );
     const sql = generateInSql(condition);
 
     assert.strictEqual(sql, "age IN (@param1, @param2, @param3)");
@@ -1014,7 +1079,11 @@ describe("SQL Generation for Pattern Operations (LIKE/NOT LIKE)", () => {
       const condition = createLikeCondition("text_field", pattern, "@param1");
       const sql = generateLikeSql(condition);
 
-      assert.strictEqual(sql, "text_field LIKE @param1", `Failed for ${description}`);
+      assert.strictEqual(
+        sql,
+        "text_field LIKE @param1",
+        `Failed for ${description}`
+      );
     });
   });
 
@@ -1052,7 +1121,11 @@ describe("SQL Generation for String Functions (STARTS_WITH/ENDS_WITH)", () => {
   });
 
   test("generateFunctionSql should generate ENDS_WITH function call", () => {
-    const condition = createEndsWithCondition("email", "@example.com", "@param1");
+    const condition = createEndsWithCondition(
+      "email",
+      "@example.com",
+      "@param1"
+    );
     const sql = generateFunctionSql(condition);
 
     assert.strictEqual(sql, "ENDS_WITH(email, @param1)");
@@ -1190,5 +1263,310 @@ describe("Integration Tests for Array and Pattern SQL Generation", () => {
 
     assert.strictEqual(inSql, "FALSE");
     assert.strictEqual(notInSql, "TRUE");
+  });
+});
+
+describe("SQL Generation for Logical Operators", () => {
+  test("generateLogicalSql should generate AND condition group with proper parentheses", () => {
+    const condition1 = createEqCondition("age", 25, "@param1");
+    const condition2 = createEqCondition("status", "active", "@param2");
+    const group = createAndGroup([condition1, condition2]);
+
+    const sql = generateLogicalSql(group);
+
+    assert.strictEqual(sql, "(age = @param1 AND status = @param2)");
+  });
+
+  test("generateLogicalSql should generate OR condition group with proper parentheses", () => {
+    const condition1 = createEqCondition("priority", "high", "@param1");
+    const condition2 = createEqCondition("priority", "urgent", "@param2");
+    const group = createOrGroup([condition1, condition2]);
+
+    const sql = generateLogicalSql(group);
+
+    assert.strictEqual(sql, "(priority = @param1 OR priority = @param2)");
+  });
+
+  test("generateLogicalSql should handle empty AND group", () => {
+    const group = createAndGroup([]);
+    const sql = generateLogicalSql(group);
+
+    // Empty AND group should be TRUE (all conditions match)
+    assert.strictEqual(sql, "TRUE");
+  });
+
+  test("generateLogicalSql should handle empty OR group", () => {
+    const group = createOrGroup([]);
+    const sql = generateLogicalSql(group);
+
+    // Empty OR group should be FALSE (no conditions match)
+    assert.strictEqual(sql, "FALSE");
+  });
+
+  test("generateLogicalSql should handle single condition without parentheses", () => {
+    const condition = createEqCondition("name", "John", "@param1");
+    const group = createAndGroup([condition]);
+
+    const sql = generateLogicalSql(group);
+
+    // Single condition should not have parentheses
+    assert.strictEqual(sql, "name = @param1");
+  });
+
+  test("generateLogicalSql should handle nested condition groups", () => {
+    const condition1 = createEqCondition("age", 25, "@param1");
+    const condition2 = createEqCondition("status", "active", "@param2");
+    const innerGroup = createOrGroup([condition1, condition2]);
+
+    const condition3 = createGtCondition("score", 80, "@param3");
+    const outerGroup = createAndGroup([innerGroup, condition3]);
+
+    const sql = generateLogicalSql(outerGroup);
+
+    assert.strictEqual(
+      sql,
+      "((age = @param1 OR status = @param2) AND score > @param3)"
+    );
+  });
+
+  test("generateLogicalSql should handle multiple levels of nesting", () => {
+    // Create: ((age = 25 OR age = 30) AND status = 'active') OR priority = 'high'
+    const ageCondition1 = createEqCondition("age", 25, "@param1");
+    const ageCondition2 = createEqCondition("age", 30, "@param2");
+    const ageGroup = createOrGroup([ageCondition1, ageCondition2]);
+
+    const statusCondition = createEqCondition("status", "active", "@param3");
+    const innerAndGroup = createAndGroup([ageGroup, statusCondition]);
+
+    const priorityCondition = createEqCondition("priority", "high", "@param4");
+    const outerOrGroup = createOrGroup([innerAndGroup, priorityCondition]);
+
+    const sql = generateLogicalSql(outerOrGroup);
+
+    assert.strictEqual(
+      sql,
+      "(((age = @param1 OR age = @param2) AND status = @param3) OR priority = @param4)"
+    );
+  });
+
+  test("generateLogicalSql should handle mixed condition types in groups", () => {
+    const comparisonCondition = createEqCondition("age", 25, "@param1");
+    const inCondition = createInCondition(
+      "status",
+      ["active", "pending"],
+      ["@param2", "@param3"]
+    );
+    const likeCondition = createLikeCondition("name", "John%", "@param4");
+    const nullCondition = createIsNullCondition("deleted_at");
+
+    const group = createAndGroup([
+      comparisonCondition,
+      inCondition,
+      likeCondition,
+      nullCondition,
+    ]);
+
+    const sql = generateLogicalSql(group);
+
+    assert.strictEqual(
+      sql,
+      "(age = @param1 AND status IN (@param2, @param3) AND name LIKE @param4 AND deleted_at IS NULL)"
+    );
+  });
+
+  test("generateLogicalSql should handle function conditions in groups", () => {
+    const startsWithCondition = createStartsWithCondition(
+      "name",
+      "John",
+      "@param1"
+    );
+    const endsWithCondition = createEndsWithCondition(
+      "email",
+      "@example.com",
+      "@param2"
+    );
+
+    const group = createOrGroup([startsWithCondition, endsWithCondition]);
+
+    const sql = generateLogicalSql(group);
+
+    assert.strictEqual(
+      sql,
+      "(STARTS_WITH(name, @param1) OR ENDS_WITH(email, @param2))"
+    );
+  });
+
+  test("generateLogicalSql should throw error for non-condition-group input", () => {
+    const condition = createEqCondition("age", 25, "@param1");
+
+    assert.throws(() => generateLogicalSql(condition as any), {
+      name: "Error",
+      message: "Expected condition group",
+    });
+  });
+
+  test("generateLogicalSql should handle large groups with many conditions", () => {
+    const conditions: Condition[] = [];
+    for (let i = 1; i <= 5; i++) {
+      conditions.push(createEqCondition(`col${i}`, `value${i}`, `@param${i}`));
+    }
+
+    const group = createAndGroup(conditions);
+    const sql = generateLogicalSql(group);
+
+    const expected =
+      "(col1 = @param1 AND col2 = @param2 AND col3 = @param3 AND col4 = @param4 AND col5 = @param5)";
+    assert.strictEqual(sql, expected);
+  });
+});
+
+describe("Unified SQL Generation", () => {
+  test("generateConditionSql should handle individual comparison conditions", () => {
+    const condition = createEqCondition("age", 25, "@param1");
+    const sql = generateConditionSql(condition);
+
+    assert.strictEqual(sql, "age = @param1");
+  });
+
+  test("generateConditionSql should handle individual IN conditions", () => {
+    const condition = createInCondition(
+      "status",
+      ["active", "pending"],
+      ["@param1", "@param2"]
+    );
+    const sql = generateConditionSql(condition);
+
+    assert.strictEqual(sql, "status IN (@param1, @param2)");
+  });
+
+  test("generateConditionSql should handle individual LIKE conditions", () => {
+    const condition = createLikeCondition("name", "John%", "@param1");
+    const sql = generateConditionSql(condition);
+
+    assert.strictEqual(sql, "name LIKE @param1");
+  });
+
+  test("generateConditionSql should handle individual function conditions", () => {
+    const condition = createStartsWithCondition("name", "John", "@param1");
+    const sql = generateConditionSql(condition);
+
+    assert.strictEqual(sql, "STARTS_WITH(name, @param1)");
+  });
+
+  test("generateConditionSql should handle individual null conditions", () => {
+    const condition = createIsNullCondition("deleted_at");
+    const sql = generateConditionSql(condition);
+
+    assert.strictEqual(sql, "deleted_at IS NULL");
+  });
+
+  test("generateConditionSql should handle condition groups", () => {
+    const condition1 = createEqCondition("age", 25, "@param1");
+    const condition2 = createEqCondition("status", "active", "@param2");
+    const group = createAndGroup([condition1, condition2]);
+
+    const sql = generateConditionSql(group);
+
+    assert.strictEqual(sql, "(age = @param1 AND status = @param2)");
+  });
+
+  test("generateConditionSql should handle nested groups recursively", () => {
+    const condition1 = createEqCondition("age", 25, "@param1");
+    const condition2 = createEqCondition("status", "active", "@param2");
+    const innerGroup = createOrGroup([condition1, condition2]);
+
+    const condition3 = createGtCondition("score", 80, "@param3");
+    const outerGroup = createAndGroup([innerGroup, condition3]);
+
+    const sql = generateConditionSql(outerGroup);
+
+    assert.strictEqual(
+      sql,
+      "((age = @param1 OR status = @param2) AND score > @param3)"
+    );
+  });
+
+  test("generateConditionSql should throw error for unsupported condition types", () => {
+    const invalidCondition: Condition = {
+      type: "invalid" as any,
+      column: "test",
+      operator: "INVALID",
+    };
+
+    assert.throws(() => generateConditionSql(invalidCondition), {
+      name: "Error",
+      message: "Unsupported condition type: invalid",
+    });
+  });
+
+  test("generateConditionSql should throw error for invalid condition nodes", () => {
+    const invalidNode = { invalid: "node" } as any;
+
+    assert.throws(() => generateConditionSql(invalidNode), {
+      name: "Error",
+      message:
+        "Invalid condition node: must be either Condition or ConditionGroup",
+    });
+  });
+
+  test("generateConditionSql should handle complex mixed scenarios", () => {
+    // Create a complex condition tree:
+    // (age > 18 AND (status = 'active' OR status = 'pending')) OR (priority = 'high' AND name LIKE 'John%')
+
+    const ageCondition = createGtCondition("age", 18, "@param1");
+    const statusCondition1 = createEqCondition("status", "active", "@param2");
+    const statusCondition2 = createEqCondition("status", "pending", "@param3");
+    const statusGroup = createOrGroup([statusCondition1, statusCondition2]);
+    const leftGroup = createAndGroup([ageCondition, statusGroup]);
+
+    const priorityCondition = createEqCondition("priority", "high", "@param4");
+    const nameCondition = createLikeCondition("name", "John%", "@param5");
+    const rightGroup = createAndGroup([priorityCondition, nameCondition]);
+
+    const rootGroup = createOrGroup([leftGroup, rightGroup]);
+
+    const sql = generateConditionSql(rootGroup);
+
+    const expected =
+      "((age > @param1 AND (status = @param2 OR status = @param3)) OR (priority = @param4 AND name LIKE @param5))";
+    assert.strictEqual(sql, expected);
+  });
+
+  test("generateConditionSql should handle operator precedence correctly", () => {
+    // Test that AND has higher precedence than OR when mixed
+    // Create: condition1 OR condition2 AND condition3
+    // Should be grouped as: condition1 OR (condition2 AND condition3)
+
+    const condition1 = createEqCondition("a", 1, "@param1");
+    const condition2 = createEqCondition("b", 2, "@param2");
+    const condition3 = createEqCondition("c", 3, "@param3");
+
+    const andGroup = createAndGroup([condition2, condition3]);
+    const orGroup = createOrGroup([condition1, andGroup]);
+
+    const sql = generateConditionSql(orGroup);
+
+    assert.strictEqual(sql, "(a = @param1 OR (b = @param2 AND c = @param3))");
+  });
+
+  test("generateConditionSql should handle edge cases with empty arrays in IN conditions", () => {
+    const emptyInCondition = createInCondition("status", [], []);
+    const normalCondition = createEqCondition("age", 25, "@param1");
+    const group = createAndGroup([emptyInCondition, normalCondition]);
+
+    const sql = generateConditionSql(group);
+
+    // Empty IN should generate FALSE, so the AND group should be (FALSE AND age = @param1)
+    assert.strictEqual(sql, "(FALSE AND age = @param1)");
+  });
+
+  test("generateConditionSql should handle null value special cases in groups", () => {
+    const nullEqCondition = createEqCondition("deleted_at", null, "@param1");
+    const nullNeCondition = createNeCondition("created_at", null, "@param2");
+    const group = createOrGroup([nullEqCondition, nullNeCondition]);
+
+    const sql = generateConditionSql(group);
+
+    assert.strictEqual(sql, "(deleted_at IS NULL OR created_at IS NOT NULL)");
   });
 });
