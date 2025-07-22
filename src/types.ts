@@ -74,10 +74,7 @@ export const createParameterManager = (): ParameterManager => ({
  * @param value - The value to add as a parameter
  * @returns A tuple containing the new manager and the parameter name (with @ prefix)
  */
-export const addParameter = (
-  manager: ParameterManager,
-  value: any
-): [ParameterManager, string] => {
+export const addParameter = (manager: ParameterManager, value: any): [ParameterManager, string] => {
   // Check if value already exists to reuse parameter
   const existingParam = Object.entries(manager.parameters).find(([_, v]) => {
     // Use strict equality for primitive values and null/undefined
@@ -164,9 +161,7 @@ export const isCondition = (node: ConditionNode): node is Condition => {
 /**
  * Type guard to check if a node is a ConditionGroup
  */
-export const isConditionGroup = (
-  node: ConditionNode
-): node is ConditionGroup => {
+export const isConditionGroup = (node: ConditionNode): node is ConditionGroup => {
   return "conditions" in node;
 };
 
@@ -189,56 +184,38 @@ export const createComparisonCondition = (
 /**
  * Creates an equality condition (=)
  */
-export const createEqCondition = (
-  column: string,
-  value: any,
-  parameterName: string
-): Condition => createComparisonCondition(column, "=", value, parameterName);
+export const createEqCondition = (column: string, value: any, parameterName: string): Condition =>
+  createComparisonCondition(column, "=", value, parameterName);
 
 /**
  * Creates a not-equal condition (!=)
  */
-export const createNeCondition = (
-  column: string,
-  value: any,
-  parameterName: string
-): Condition => createComparisonCondition(column, "!=", value, parameterName);
+export const createNeCondition = (column: string, value: any, parameterName: string): Condition =>
+  createComparisonCondition(column, "!=", value, parameterName);
 
 /**
  * Creates a greater-than condition (>)
  */
-export const createGtCondition = (
-  column: string,
-  value: any,
-  parameterName: string
-): Condition => createComparisonCondition(column, ">", value, parameterName);
+export const createGtCondition = (column: string, value: any, parameterName: string): Condition =>
+  createComparisonCondition(column, ">", value, parameterName);
 
 /**
  * Creates a less-than condition (<)
  */
-export const createLtCondition = (
-  column: string,
-  value: any,
-  parameterName: string
-): Condition => createComparisonCondition(column, "<", value, parameterName);
+export const createLtCondition = (column: string, value: any, parameterName: string): Condition =>
+  createComparisonCondition(column, "<", value, parameterName);
 
 /**
  * Creates a greater-than-or-equal condition (>=)
  */
-export const createGeCondition = (
-  column: string,
-  value: any,
-  parameterName: string
-): Condition => createComparisonCondition(column, ">=", value, parameterName);
+export const createGeCondition = (column: string, value: any, parameterName: string): Condition =>
+  createComparisonCondition(column, ">=", value, parameterName);
 
 /**
  * Creates a less-than-or-equal condition (<=)
  */
-export const createLeCondition = (
-  column: string,
-  value: any,
-  parameterName: string
-): Condition => createComparisonCondition(column, "<=", value, parameterName);
+export const createLeCondition = (column: string, value: any, parameterName: string): Condition =>
+  createComparisonCondition(column, "<=", value, parameterName);
 
 /**
  * Creates an IN condition
@@ -268,6 +245,36 @@ export const createNotInCondition = (
   operator: "NOT IN",
   values,
   parameterNames,
+});
+
+/**
+ * Creates an IN UNNEST condition (array parameter form)
+ */
+export const createInUnnestCondition = (
+  column: string,
+  values: any[],
+  parameterName: string
+): Condition => ({
+  type: "in",
+  column,
+  operator: "IN UNNEST",
+  values,
+  parameterName,
+});
+
+/**
+ * Creates a NOT IN UNNEST condition (array parameter form)
+ */
+export const createNotInUnnestCondition = (
+  column: string,
+  values: any[],
+  parameterName: string
+): Condition => ({
+  type: "in",
+  column,
+  operator: "NOT IN UNNEST",
+  values,
+  parameterName,
 });
 
 /**
@@ -351,9 +358,7 @@ export const createIsNotNullCondition = (column: string): Condition => ({
 /**
  * Creates a condition group with AND logic
  */
-export const createAndGroup = (
-  conditions: ConditionNode[]
-): ConditionGroup => ({
+export const createAndGroup = (conditions: ConditionNode[]): ConditionGroup => ({
   type: "and",
   conditions,
 });
@@ -394,9 +399,7 @@ export const generateComparisonSql = (condition: Condition): string => {
 
   // Standard parameterized comparison
   if (!parameterName) {
-    throw new Error(
-      "Parameter name is required for non-null comparison conditions"
-    );
+    throw new Error("Parameter name is required for non-null comparison conditions");
   }
 
   return `${column} ${operator} ${parameterName}`;
@@ -404,7 +407,7 @@ export const generateComparisonSql = (condition: Condition): string => {
 
 /**
  * Generates SQL string for IN and NOT IN operations
- * Handles empty array edge cases appropriately
+ * Handles both individual parameter and UNNEST forms, and empty array edge cases
  * @param condition - The IN condition to convert to SQL
  * @returns SQL string representation of the IN condition
  */
@@ -413,28 +416,40 @@ export const generateInSql = (condition: Condition): string => {
     throw new Error(`Expected in condition, got ${condition.type}`);
   }
 
-  const { column, operator, values, parameterNames } = condition;
+  const { column, operator, values, parameterNames, parameterName } = condition;
 
   // Handle empty array edge case
   if (!values || values.length === 0) {
-    // For empty IN: always false (no rows match)
-    // For empty NOT IN: always true (all rows match)
-    if (operator === "IN") {
+    // For empty IN/IN UNNEST: always false (no rows match)
+    // For empty NOT IN/NOT IN UNNEST: always true (all rows match)
+    if (operator === "IN" || operator === "IN UNNEST") {
       return "FALSE"; // No rows will match an empty IN clause
-    } else if (operator === "NOT IN") {
+    } else if (operator === "NOT IN" || operator === "NOT IN UNNEST") {
       return "TRUE"; // All rows match an empty NOT IN clause
     }
   }
 
-  // Validate parameter names array
-  if (!parameterNames || parameterNames.length !== (values?.length ?? 0)) {
-    throw new Error("Parameter names array must match values array length");
+  // Handle UNNEST form (single array parameter)
+  if (operator === "IN UNNEST" || operator === "NOT IN UNNEST") {
+    if (!parameterName) {
+      throw new Error("Parameter name is required for UNNEST conditions");
+    }
+    return `${column} ${operator}(${parameterName})`;
   }
 
-  // Generate parameter list: (@param1, @param2, @param3)
-  const parameterList = parameterNames.join(", ");
+  // Handle individual parameter form (multiple parameters)
+  if (operator === "IN" || operator === "NOT IN") {
+    // Validate parameter names array
+    if (!parameterNames || parameterNames.length !== (values?.length ?? 0)) {
+      throw new Error("Parameter names array must match values array length");
+    }
 
-  return `${column} ${operator} (${parameterList})`;
+    // Generate parameter list: (@param1, @param2, @param3)
+    const parameterList = parameterNames.join(", ");
+    return `${column} ${operator} (${parameterList})`;
+  }
+
+  throw new Error(`Unsupported IN operator: ${operator}`);
 };
 
 /**
@@ -518,9 +533,7 @@ export const generateConditionSql = (node: ConditionNode): string => {
     // Handle condition groups recursively
     return generateLogicalSql(node);
   } else {
-    throw new Error(
-      "Invalid condition node: must be either Condition or ConditionGroup"
-    );
+    throw new Error("Invalid condition node: must be either Condition or ConditionGroup");
   }
 };
 
@@ -553,9 +566,7 @@ export const generateLogicalSql = (group: ConditionGroup): string => {
   }
 
   // Generate SQL for each condition
-  const conditionSqls = conditions.map((condition) =>
-    generateConditionSql(condition)
-  );
+  const conditionSqls = conditions.map((condition) => generateConditionSql(condition));
 
   // Join with appropriate logical operator
   const operator = type.toUpperCase(); // "AND" or "OR"

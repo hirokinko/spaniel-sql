@@ -13,6 +13,7 @@ import {
   createGeCondition,
   createGtCondition,
   createInCondition,
+  createInUnnestCondition,
   createIsNotNullCondition,
   createIsNullCondition,
   createLeCondition,
@@ -20,17 +21,18 @@ import {
   createLtCondition,
   createNeCondition,
   createNotInCondition,
+  createNotInUnnestCondition,
   createNotLikeCondition,
   createOrGroup,
   createParameterManager,
   createStartsWithCondition,
   generateComparisonSql,
+  generateConditionSql,
+  generateFunctionSql,
   generateInSql,
   generateLikeSql,
-  generateFunctionSql,
-  generateNullSql,
   generateLogicalSql,
-  generateConditionSql,
+  generateNullSql,
   isCondition,
   isConditionGroup,
   type LogicalOperator,
@@ -61,14 +63,7 @@ describe("Core Types", () => {
   });
 
   test("ComparisonOperator should include all supported operators", () => {
-    const validOperators: ComparisonOperator[] = [
-      "=",
-      "!=",
-      "<",
-      ">",
-      "<=",
-      ">=",
-    ];
+    const validOperators: ComparisonOperator[] = ["=", "!=", "<", ">", "<=", ">="];
 
     validOperators.forEach((op) => {
       assert.ok(typeof op === "string");
@@ -377,13 +372,7 @@ describe("addParameter", () => {
 });
 describe("Condition Types", () => {
   test("ConditionType should include all supported types", () => {
-    const validTypes: ConditionType[] = [
-      "comparison",
-      "in",
-      "like",
-      "null",
-      "function",
-    ];
+    const validTypes: ConditionType[] = ["comparison", "in", "like", "null", "function"];
 
     validTypes.forEach((type) => {
       assert.ok(typeof type === "string");
@@ -588,6 +577,48 @@ describe("Array Condition Creation", () => {
     assert.deepStrictEqual(condition.values, []);
     assert.deepStrictEqual(condition.parameterNames, []);
   });
+
+  test("createInUnnestCondition should create IN UNNEST condition", () => {
+    const values = ["active", "pending", "completed"];
+    const condition = createInUnnestCondition("status", values, "@param1");
+
+    assert.strictEqual(condition.type, "in");
+    assert.strictEqual(condition.column, "status");
+    assert.strictEqual(condition.operator, "IN UNNEST");
+    assert.deepStrictEqual(condition.values, values);
+    assert.strictEqual(condition.parameterName, "@param1");
+  });
+
+  test("createNotInUnnestCondition should create NOT IN UNNEST condition", () => {
+    const values = [1, 2, 3];
+    const condition = createNotInUnnestCondition("id", values, "@param1");
+
+    assert.strictEqual(condition.type, "in");
+    assert.strictEqual(condition.column, "id");
+    assert.strictEqual(condition.operator, "NOT IN UNNEST");
+    assert.deepStrictEqual(condition.values, values);
+    assert.strictEqual(condition.parameterName, "@param1");
+  });
+
+  test("createInUnnestCondition should handle empty arrays", () => {
+    const condition = createInUnnestCondition("status", [], "@param1");
+
+    assert.strictEqual(condition.type, "in");
+    assert.strictEqual(condition.column, "status");
+    assert.strictEqual(condition.operator, "IN UNNEST");
+    assert.deepStrictEqual(condition.values, []);
+    assert.strictEqual(condition.parameterName, "@param1");
+  });
+
+  test("createNotInUnnestCondition should handle empty arrays", () => {
+    const condition = createNotInUnnestCondition("priority", [], "@param1");
+
+    assert.strictEqual(condition.type, "in");
+    assert.strictEqual(condition.column, "priority");
+    assert.strictEqual(condition.operator, "NOT IN UNNEST");
+    assert.deepStrictEqual(condition.values, []);
+    assert.strictEqual(condition.parameterName, "@param1");
+  });
 });
 
 describe("String Pattern Condition Creation", () => {
@@ -622,11 +653,7 @@ describe("String Pattern Condition Creation", () => {
   });
 
   test("createEndsWithCondition should create ENDS_WITH function condition", () => {
-    const condition = createEndsWithCondition(
-      "email",
-      "@example.com",
-      "@param1"
-    );
+    const condition = createEndsWithCondition("email", "@example.com", "@param1");
 
     assert.strictEqual(condition.type, "function");
     assert.strictEqual(condition.column, "email");
@@ -725,12 +752,7 @@ describe("SQL Generation for Basic Comparison Conditions", () => {
     const operators: ComparisonOperator[] = ["=", "!=", "<", ">", "<=", ">="];
 
     operators.forEach((operator) => {
-      const condition = createComparisonCondition(
-        "score",
-        operator,
-        100,
-        "@param1"
-      );
+      const condition = createComparisonCondition("score", operator, 100, "@param1");
       const sql = generateComparisonSql(condition);
 
       assert.strictEqual(sql, `score ${operator} @param1`);
@@ -755,12 +777,7 @@ describe("SQL Generation for Basic Comparison Conditions", () => {
     const operators: ComparisonOperator[] = ["<", ">", "<=", ">="];
 
     operators.forEach((operator) => {
-      const condition = createComparisonCondition(
-        "value",
-        operator,
-        null,
-        "@param1"
-      );
+      const condition = createComparisonCondition("value", operator, null, "@param1");
       const sql = generateComparisonSql(condition);
 
       // For other operators with null, use standard parameterized form
@@ -796,12 +813,7 @@ describe("SQL Generation for Basic Comparison Conditions", () => {
   });
 
   test("generateComparisonSql should handle parameter names with different formats", () => {
-    const testCases = [
-      "@param1",
-      "@param123",
-      "@userParam",
-      "@param_with_underscore",
-    ];
+    const testCases = ["@param1", "@param123", "@userParam", "@param_with_underscore"];
 
     testCases.forEach((paramName) => {
       const condition = createEqCondition("column", "value", paramName);
@@ -906,35 +918,20 @@ describe("SQL Generation for Basic Comparison Conditions", () => {
 
     // Test that != with null becomes IS NOT NULL
     const neNullCondition = createNeCondition("field", null, "@param1");
-    assert.strictEqual(
-      generateComparisonSql(neNullCondition),
-      "field IS NOT NULL"
-    );
+    assert.strictEqual(generateComparisonSql(neNullCondition), "field IS NOT NULL");
 
     // Test that other operators with null use parameterized form
     const gtNullCondition = createGtCondition("field", null, "@param1");
-    assert.strictEqual(
-      generateComparisonSql(gtNullCondition),
-      "field > @param1"
-    );
+    assert.strictEqual(generateComparisonSql(gtNullCondition), "field > @param1");
 
     const ltNullCondition = createLtCondition("field", null, "@param1");
-    assert.strictEqual(
-      generateComparisonSql(ltNullCondition),
-      "field < @param1"
-    );
+    assert.strictEqual(generateComparisonSql(ltNullCondition), "field < @param1");
 
     const geNullCondition = createGeCondition("field", null, "@param1");
-    assert.strictEqual(
-      generateComparisonSql(geNullCondition),
-      "field >= @param1"
-    );
+    assert.strictEqual(generateComparisonSql(geNullCondition), "field >= @param1");
 
     const leNullCondition = createLeCondition("field", null, "@param1");
-    assert.strictEqual(
-      generateComparisonSql(leNullCondition),
-      "field <= @param1"
-    );
+    assert.strictEqual(generateComparisonSql(leNullCondition), "field <= @param1");
   });
 });
 
@@ -951,22 +948,14 @@ describe("SQL Generation for Array Operations (IN/NOT IN)", () => {
   });
 
   test("generateInSql should generate NOT IN clause with multiple parameters", () => {
-    const condition = createNotInCondition(
-      "priority",
-      ["low", "medium"],
-      ["@param1", "@param2"]
-    );
+    const condition = createNotInCondition("priority", ["low", "medium"], ["@param1", "@param2"]);
     const sql = generateInSql(condition);
 
     assert.strictEqual(sql, "priority NOT IN (@param1, @param2)");
   });
 
   test("generateInSql should handle single value IN clause", () => {
-    const condition = createInCondition(
-      "category",
-      ["electronics"],
-      ["@param1"]
-    );
+    const condition = createInCondition("category", ["electronics"], ["@param1"]);
     const sql = generateInSql(condition);
 
     assert.strictEqual(sql, "category IN (@param1)");
@@ -1017,11 +1006,7 @@ describe("SQL Generation for Array Operations (IN/NOT IN)", () => {
   });
 
   test("generateInSql should validate parameter names array length matches values", () => {
-    const condition = createInCondition(
-      "status",
-      ["active", "pending"],
-      ["@param1"]
-    ); // Mismatched lengths
+    const condition = createInCondition("status", ["active", "pending"], ["@param1"]); // Mismatched lengths
 
     assert.throws(() => generateInSql(condition), {
       name: "Error",
@@ -1030,11 +1015,7 @@ describe("SQL Generation for Array Operations (IN/NOT IN)", () => {
   });
 
   test("generateInSql should handle numeric values", () => {
-    const condition = createInCondition(
-      "age",
-      [18, 25, 30],
-      ["@param1", "@param2", "@param3"]
-    );
+    const condition = createInCondition("age", [18, 25, 30], ["@param1", "@param2", "@param3"]);
     const sql = generateInSql(condition);
 
     assert.strictEqual(sql, "age IN (@param1, @param2, @param3)");
@@ -1046,6 +1027,84 @@ describe("SQL Generation for Array Operations (IN/NOT IN)", () => {
     assert.throws(() => generateInSql(nonInCondition), {
       name: "Error",
       message: "Expected in condition, got comparison",
+    });
+  });
+
+  test("generateInSql should generate IN UNNEST clause with array parameter", () => {
+    const condition = createInUnnestCondition(
+      "status",
+      ["active", "pending", "completed"],
+      "@param1"
+    );
+    const sql = generateInSql(condition);
+
+    assert.strictEqual(sql, "status IN UNNEST(@param1)");
+  });
+
+  test("generateInSql should generate NOT IN UNNEST clause with array parameter", () => {
+    const condition = createNotInUnnestCondition("priority", ["low", "medium"], "@param1");
+    const sql = generateInSql(condition);
+
+    assert.strictEqual(sql, "priority NOT IN UNNEST(@param1)");
+  });
+
+  test("generateInSql should handle empty array for IN UNNEST operation", () => {
+    const condition = createInUnnestCondition("status", [], "@param1");
+    const sql = generateInSql(condition);
+
+    // Empty IN UNNEST should always be FALSE (no rows match)
+    assert.strictEqual(sql, "FALSE");
+  });
+
+  test("generateInSql should handle empty array for NOT IN UNNEST operation", () => {
+    const condition = createNotInUnnestCondition("status", [], "@param1");
+    const sql = generateInSql(condition);
+
+    // Empty NOT IN UNNEST should always be TRUE (all rows match)
+    assert.strictEqual(sql, "TRUE");
+  });
+
+  test("generateInSql should throw error when parameter name is missing for UNNEST conditions", () => {
+    const condition: Condition = {
+      type: "in",
+      column: "status",
+      operator: "IN UNNEST",
+      values: ["active"],
+      // parameterName is undefined
+    };
+
+    assert.throws(() => generateInSql(condition), {
+      name: "Error",
+      message: "Parameter name is required for UNNEST conditions",
+    });
+  });
+
+  test("generateInSql should handle single value IN UNNEST clause", () => {
+    const condition = createInUnnestCondition("category", ["electronics"], "@param1");
+    const sql = generateInSql(condition);
+
+    assert.strictEqual(sql, "category IN UNNEST(@param1)");
+  });
+
+  test("generateInSql should handle numeric values in UNNEST form", () => {
+    const condition = createInUnnestCondition("age", [18, 25, 30], "@param1");
+    const sql = generateInSql(condition);
+
+    assert.strictEqual(sql, "age IN UNNEST(@param1)");
+  });
+
+  test("generateInSql should throw error for unsupported IN operators", () => {
+    const condition: Condition = {
+      type: "in",
+      column: "status",
+      operator: "INVALID_OPERATOR" as any,
+      values: ["active"],
+      parameterName: "@param1",
+    };
+
+    assert.throws(() => generateInSql(condition), {
+      name: "Error",
+      message: "Unsupported IN operator: INVALID_OPERATOR",
     });
   });
 });
@@ -1079,11 +1138,7 @@ describe("SQL Generation for Pattern Operations (LIKE/NOT LIKE)", () => {
       const condition = createLikeCondition("text_field", pattern, "@param1");
       const sql = generateLikeSql(condition);
 
-      assert.strictEqual(
-        sql,
-        "text_field LIKE @param1",
-        `Failed for ${description}`
-      );
+      assert.strictEqual(sql, "text_field LIKE @param1", `Failed for ${description}`);
     });
   });
 
@@ -1121,11 +1176,7 @@ describe("SQL Generation for String Functions (STARTS_WITH/ENDS_WITH)", () => {
   });
 
   test("generateFunctionSql should generate ENDS_WITH function call", () => {
-    const condition = createEndsWithCondition(
-      "email",
-      "@example.com",
-      "@param1"
-    );
+    const condition = createEndsWithCondition("email", "@example.com", "@param1");
     const sql = generateFunctionSql(condition);
 
     assert.strictEqual(sql, "ENDS_WITH(email, @param1)");
@@ -1264,6 +1315,36 @@ describe("Integration Tests for Array and Pattern SQL Generation", () => {
     assert.strictEqual(inSql, "FALSE");
     assert.strictEqual(notInSql, "TRUE");
   });
+
+  test("should handle UNNEST conditions with parameter manager integration", () => {
+    const manager = createParameterManager();
+    const values = ["active", "pending", "completed"];
+
+    // Add array as single parameter for UNNEST form
+    const [newManager, paramName] = addParameter(manager, values);
+    const condition = createInUnnestCondition("status", values, paramName);
+    const sql = generateInSql(condition);
+
+    assert.strictEqual(sql, "status IN UNNEST(@param1)");
+    assert.deepStrictEqual(newManager.parameters.param1, values);
+  });
+
+  test("should handle mixed IN and IN UNNEST conditions", () => {
+    // Individual parameter form
+    const individualCondition = createInCondition(
+      "status1",
+      ["active", "pending"],
+      ["@param1", "@param2"]
+    );
+    const individualSql = generateInSql(individualCondition);
+
+    // UNNEST form
+    const unnestCondition = createInUnnestCondition("status2", ["active", "pending"], "@param3");
+    const unnestSql = generateInSql(unnestCondition);
+
+    assert.strictEqual(individualSql, "status1 IN (@param1, @param2)");
+    assert.strictEqual(unnestSql, "status2 IN UNNEST(@param3)");
+  });
 });
 
 describe("SQL Generation for Logical Operators", () => {
@@ -1323,10 +1404,7 @@ describe("SQL Generation for Logical Operators", () => {
 
     const sql = generateLogicalSql(outerGroup);
 
-    assert.strictEqual(
-      sql,
-      "((age = @param1 OR status = @param2) AND score > @param3)"
-    );
+    assert.strictEqual(sql, "((age = @param1 OR status = @param2) AND score > @param3)");
   });
 
   test("generateLogicalSql should handle multiple levels of nesting", () => {
@@ -1351,20 +1429,11 @@ describe("SQL Generation for Logical Operators", () => {
 
   test("generateLogicalSql should handle mixed condition types in groups", () => {
     const comparisonCondition = createEqCondition("age", 25, "@param1");
-    const inCondition = createInCondition(
-      "status",
-      ["active", "pending"],
-      ["@param2", "@param3"]
-    );
+    const inCondition = createInCondition("status", ["active", "pending"], ["@param2", "@param3"]);
     const likeCondition = createLikeCondition("name", "John%", "@param4");
     const nullCondition = createIsNullCondition("deleted_at");
 
-    const group = createAndGroup([
-      comparisonCondition,
-      inCondition,
-      likeCondition,
-      nullCondition,
-    ]);
+    const group = createAndGroup([comparisonCondition, inCondition, likeCondition, nullCondition]);
 
     const sql = generateLogicalSql(group);
 
@@ -1374,26 +1443,30 @@ describe("SQL Generation for Logical Operators", () => {
     );
   });
 
-  test("generateLogicalSql should handle function conditions in groups", () => {
-    const startsWithCondition = createStartsWithCondition(
-      "name",
-      "John",
-      "@param1"
-    );
-    const endsWithCondition = createEndsWithCondition(
-      "email",
-      "@example.com",
-      "@param2"
-    );
+  test("generateLogicalSql should handle UNNEST conditions in groups", () => {
+    const comparisonCondition = createEqCondition("age", 25, "@param1");
+    const inUnnestCondition = createInUnnestCondition("status", ["active", "pending"], "@param2");
+    const notInUnnestCondition = createNotInUnnestCondition("priority", ["low"], "@param3");
 
-    const group = createOrGroup([startsWithCondition, endsWithCondition]);
+    const group = createAndGroup([comparisonCondition, inUnnestCondition, notInUnnestCondition]);
 
     const sql = generateLogicalSql(group);
 
     assert.strictEqual(
       sql,
-      "(STARTS_WITH(name, @param1) OR ENDS_WITH(email, @param2))"
+      "(age = @param1 AND status IN UNNEST(@param2) AND priority NOT IN UNNEST(@param3))"
     );
+  });
+
+  test("generateLogicalSql should handle function conditions in groups", () => {
+    const startsWithCondition = createStartsWithCondition("name", "John", "@param1");
+    const endsWithCondition = createEndsWithCondition("email", "@example.com", "@param2");
+
+    const group = createOrGroup([startsWithCondition, endsWithCondition]);
+
+    const sql = generateLogicalSql(group);
+
+    assert.strictEqual(sql, "(STARTS_WITH(name, @param1) OR ENDS_WITH(email, @param2))");
   });
 
   test("generateLogicalSql should throw error for non-condition-group input", () => {
@@ -1429,11 +1502,7 @@ describe("Unified SQL Generation", () => {
   });
 
   test("generateConditionSql should handle individual IN conditions", () => {
-    const condition = createInCondition(
-      "status",
-      ["active", "pending"],
-      ["@param1", "@param2"]
-    );
+    const condition = createInCondition("status", ["active", "pending"], ["@param1", "@param2"]);
     const sql = generateConditionSql(condition);
 
     assert.strictEqual(sql, "status IN (@param1, @param2)");
@@ -1480,10 +1549,7 @@ describe("Unified SQL Generation", () => {
 
     const sql = generateConditionSql(outerGroup);
 
-    assert.strictEqual(
-      sql,
-      "((age = @param1 OR status = @param2) AND score > @param3)"
-    );
+    assert.strictEqual(sql, "((age = @param1 OR status = @param2) AND score > @param3)");
   });
 
   test("generateConditionSql should throw error for unsupported condition types", () => {
@@ -1504,8 +1570,7 @@ describe("Unified SQL Generation", () => {
 
     assert.throws(() => generateConditionSql(invalidNode), {
       name: "Error",
-      message:
-        "Invalid condition node: must be either Condition or ConditionGroup",
+      message: "Invalid condition node: must be either Condition or ConditionGroup",
     });
   });
 
