@@ -374,3 +374,92 @@ export const generateComparisonSql = (condition: Condition): string => {
 
   return `${column} ${operator} ${parameterName}`;
 };
+
+/**
+ * Generates SQL string for IN and NOT IN operations
+ * Handles empty array edge cases appropriately
+ * @param condition - The IN condition to convert to SQL
+ * @returns SQL string representation of the IN condition
+ */
+export const generateInSql = (condition: Condition): string => {
+  if (condition.type !== "in") {
+    throw new Error(`Expected in condition, got ${condition.type}`);
+  }
+
+  const { column, operator, values, parameterNames } = condition;
+
+  // Handle empty array edge case
+  if (!values || values.length === 0) {
+    // For empty IN: always false (no rows match)
+    // For empty NOT IN: always true (all rows match)
+    if (operator === "IN") {
+      return "FALSE"; // No rows will match an empty IN clause
+    } else if (operator === "NOT IN") {
+      return "TRUE"; // All rows match an empty NOT IN clause
+    }
+  }
+
+  // Validate parameter names array
+  if (!parameterNames || parameterNames.length !== (values?.length ?? 0)) {
+    throw new Error("Parameter names array must match values array length");
+  }
+
+  // Generate parameter list: (@param1, @param2, @param3)
+  const parameterList = parameterNames.join(", ");
+
+  return `${column} ${operator} (${parameterList})`;
+};
+
+/**
+ * Generates SQL string for LIKE and NOT LIKE operations
+ * @param condition - The LIKE condition to convert to SQL
+ * @returns SQL string representation of the LIKE condition
+ */
+export const generateLikeSql = (condition: Condition): string => {
+  if (condition.type !== "like") {
+    throw new Error(`Expected like condition, got ${condition.type}`);
+  }
+
+  const { column, operator, parameterName } = condition;
+
+  if (!parameterName) {
+    throw new Error("Parameter name is required for LIKE conditions");
+  }
+
+  return `${column} ${operator} ${parameterName}`;
+};
+
+/**
+ * Generates SQL string for Cloud Spanner string functions (STARTS_WITH, ENDS_WITH)
+ * @param condition - The function condition to convert to SQL
+ * @returns SQL string representation of the function condition
+ */
+export const generateFunctionSql = (condition: Condition): string => {
+  if (condition.type !== "function") {
+    throw new Error(`Expected function condition, got ${condition.type}`);
+  }
+
+  const { column, operator, parameterName } = condition;
+
+  if (!parameterName) {
+    throw new Error("Parameter name is required for function conditions");
+  }
+
+  // Generate function call: STARTS_WITH(column, @param) or ENDS_WITH(column, @param)
+  return `${operator}(${column}, ${parameterName})`;
+};
+
+/**
+ * Generates SQL string for NULL check operations
+ * @param condition - The null condition to convert to SQL
+ * @returns SQL string representation of the null condition
+ */
+export const generateNullSql = (condition: Condition): string => {
+  if (condition.type !== "null") {
+    throw new Error(`Expected null condition, got ${condition.type}`);
+  }
+
+  const { column, operator } = condition;
+
+  return `${column} ${operator}`;
+};

@@ -47,7 +47,7 @@
     - Write unit tests for basic SQL generation
     - _Requirements: 2.1, 2.2, 2.4_
 
-  - [ ] 4.2 Implement SQL generation for array and pattern operations
+  - [x] 4.2 Implement SQL generation for array and pattern operations
 
     - Write SQL generation for IN/NOT IN operations with parameter expansion
     - Write SQL generation for LIKE/NOT LIKE operations

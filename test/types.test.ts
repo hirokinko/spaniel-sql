@@ -25,6 +25,10 @@ import {
   createParameterManager,
   createStartsWithCondition,
   generateComparisonSql,
+  generateInSql,
+  generateLikeSql,
+  generateFunctionSql,
+  generateNullSql,
   isCondition,
   isConditionGroup,
   type LogicalOperator,
@@ -882,5 +886,309 @@ describe("SQL Generation for Basic Comparison Conditions", () => {
 
     const leNullCondition = createLeCondition("field", null, "@param1");
     assert.strictEqual(generateComparisonSql(leNullCondition), "field <= @param1");
+  });
+});
+
+describe("SQL Generation for Array Operations (IN/NOT IN)", () => {
+  test("generateInSql should generate IN clause with multiple parameters", () => {
+    const condition = createInCondition(
+      "status",
+      ["active", "pending", "completed"],
+      ["@param1", "@param2", "@param3"]
+    );
+    const sql = generateInSql(condition);
+
+    assert.strictEqual(sql, "status IN (@param1, @param2, @param3)");
+  });
+
+  test("generateInSql should generate NOT IN clause with multiple parameters", () => {
+    const condition = createNotInCondition("priority", ["low", "medium"], ["@param1", "@param2"]);
+    const sql = generateInSql(condition);
+
+    assert.strictEqual(sql, "priority NOT IN (@param1, @param2)");
+  });
+
+  test("generateInSql should handle single value IN clause", () => {
+    const condition = createInCondition("category", ["electronics"], ["@param1"]);
+    const sql = generateInSql(condition);
+
+    assert.strictEqual(sql, "category IN (@param1)");
+  });
+
+  test("generateInSql should handle empty array for IN operation", () => {
+    const condition = createInCondition("status", [], []);
+    const sql = generateInSql(condition);
+
+    // Empty IN should always be FALSE (no rows match)
+    assert.strictEqual(sql, "FALSE");
+  });
+
+  test("generateInSql should handle empty array for NOT IN operation", () => {
+    const condition = createNotInCondition("status", [], []);
+    const sql = generateInSql(condition);
+
+    // Empty NOT IN should always be TRUE (all rows match)
+    assert.strictEqual(sql, "TRUE");
+  });
+
+  test("generateInSql should handle undefined values array", () => {
+    const condition: Condition = {
+      type: "in",
+      column: "status",
+      operator: "IN",
+      // values is undefined
+      parameterNames: [],
+    };
+
+    const sql = generateInSql(condition);
+    assert.strictEqual(sql, "FALSE");
+  });
+
+  test("generateInSql should handle undefined parameterNames array", () => {
+    const condition: Condition = {
+      type: "in",
+      column: "status",
+      operator: "IN",
+      values: ["active"],
+      // parameterNames is undefined
+    };
+
+    assert.throws(() => generateInSql(condition), {
+      name: "Error",
+      message: "Parameter names array must match values array length",
+    });
+  });
+
+  test("generateInSql should validate parameter names array length matches values", () => {
+    const condition = createInCondition("status", ["active", "pending"], ["@param1"]); // Mismatched lengths
+
+    assert.throws(() => generateInSql(condition), {
+      name: "Error",
+      message: "Parameter names array must match values array length",
+    });
+  });
+
+  test("generateInSql should handle numeric values", () => {
+    const condition = createInCondition("age", [18, 25, 30], ["@param1", "@param2", "@param3"]);
+    const sql = generateInSql(condition);
+
+    assert.strictEqual(sql, "age IN (@param1, @param2, @param3)");
+  });
+
+  test("generateInSql should throw error for non-in condition types", () => {
+    const nonInCondition = createEqCondition("name", "John", "@param1");
+
+    assert.throws(() => generateInSql(nonInCondition), {
+      name: "Error",
+      message: "Expected in condition, got comparison",
+    });
+  });
+});
+
+describe("SQL Generation for Pattern Operations (LIKE/NOT LIKE)", () => {
+  test("generateLikeSql should generate LIKE clause", () => {
+    const condition = createLikeCondition("name", "John%", "@param1");
+    const sql = generateLikeSql(condition);
+
+    assert.strictEqual(sql, "name LIKE @param1");
+  });
+
+  test("generateLikeSql should generate NOT LIKE clause", () => {
+    const condition = createNotLikeCondition("email", "%@spam.com", "@param1");
+    const sql = generateLikeSql(condition);
+
+    assert.strictEqual(sql, "email NOT LIKE @param1");
+  });
+
+  test("generateLikeSql should handle different pattern types", () => {
+    const testCases = [
+      { pattern: "prefix%", description: "prefix pattern" },
+      { pattern: "%suffix", description: "suffix pattern" },
+      { pattern: "%middle%", description: "contains pattern" },
+      { pattern: "exact", description: "exact match pattern" },
+      { pattern: "_single", description: "single character wildcard" },
+      { pattern: "a_b%c", description: "mixed wildcards" },
+    ];
+
+    testCases.forEach(({ pattern, description }) => {
+      const condition = createLikeCondition("text_field", pattern, "@param1");
+      const sql = generateLikeSql(condition);
+
+      assert.strictEqual(sql, "text_field LIKE @param1", `Failed for ${description}`);
+    });
+  });
+
+  test("generateLikeSql should throw error when parameter name is missing", () => {
+    const condition: Condition = {
+      type: "like",
+      column: "name",
+      operator: "LIKE",
+      value: "pattern",
+      // parameterName is undefined
+    };
+
+    assert.throws(() => generateLikeSql(condition), {
+      name: "Error",
+      message: "Parameter name is required for LIKE conditions",
+    });
+  });
+
+  test("generateLikeSql should throw error for non-like condition types", () => {
+    const nonLikeCondition = createEqCondition("name", "John", "@param1");
+
+    assert.throws(() => generateLikeSql(nonLikeCondition), {
+      name: "Error",
+      message: "Expected like condition, got comparison",
+    });
+  });
+});
+
+describe("SQL Generation for String Functions (STARTS_WITH/ENDS_WITH)", () => {
+  test("generateFunctionSql should generate STARTS_WITH function call", () => {
+    const condition = createStartsWithCondition("name", "John", "@param1");
+    const sql = generateFunctionSql(condition);
+
+    assert.strictEqual(sql, "STARTS_WITH(name, @param1)");
+  });
+
+  test("generateFunctionSql should generate ENDS_WITH function call", () => {
+    const condition = createEndsWithCondition("email", "@example.com", "@param1");
+    const sql = generateFunctionSql(condition);
+
+    assert.strictEqual(sql, "ENDS_WITH(email, @param1)");
+  });
+
+  test("generateFunctionSql should handle empty string values", () => {
+    const condition = createStartsWithCondition("text", "", "@param1");
+    const sql = generateFunctionSql(condition);
+
+    assert.strictEqual(sql, "STARTS_WITH(text, @param1)");
+  });
+
+  test("generateFunctionSql should throw error when parameter name is missing", () => {
+    const condition: Condition = {
+      type: "function",
+      column: "name",
+      operator: "STARTS_WITH",
+      value: "prefix",
+      // parameterName is undefined
+    };
+
+    assert.throws(() => generateFunctionSql(condition), {
+      name: "Error",
+      message: "Parameter name is required for function conditions",
+    });
+  });
+
+  test("generateFunctionSql should throw error for non-function condition types", () => {
+    const nonFunctionCondition = createEqCondition("name", "John", "@param1");
+
+    assert.throws(() => generateFunctionSql(nonFunctionCondition), {
+      name: "Error",
+      message: "Expected function condition, got comparison",
+    });
+  });
+});
+
+describe("SQL Generation for NULL Operations", () => {
+  test("generateNullSql should generate IS NULL clause", () => {
+    const condition = createIsNullCondition("deleted_at");
+    const sql = generateNullSql(condition);
+
+    assert.strictEqual(sql, "deleted_at IS NULL");
+  });
+
+  test("generateNullSql should generate IS NOT NULL clause", () => {
+    const condition = createIsNotNullCondition("created_at");
+    const sql = generateNullSql(condition);
+
+    assert.strictEqual(sql, "created_at IS NOT NULL");
+  });
+
+  test("generateNullSql should throw error for non-null condition types", () => {
+    const nonNullCondition = createEqCondition("name", "John", "@param1");
+
+    assert.throws(() => generateNullSql(nonNullCondition), {
+      name: "Error",
+      message: "Expected null condition, got comparison",
+    });
+  });
+});
+
+describe("Integration Tests for Array and Pattern SQL Generation", () => {
+  test("should handle complex IN condition with parameter manager integration", () => {
+    const manager = createParameterManager();
+    const values = ["active", "pending", "completed"];
+
+    // Simulate adding parameters for each value
+    const [manager1, param1] = addParameter(manager, values[0]);
+    const [manager2, param2] = addParameter(manager1, values[1]);
+    const [manager3, param3] = addParameter(manager2, values[2]);
+
+    const parameterNames = [param1, param2, param3];
+    const condition = createInCondition("status", values, parameterNames);
+    const sql = generateInSql(condition);
+
+    assert.strictEqual(sql, "status IN (@param1, @param2, @param3)");
+    assert.deepStrictEqual(manager3.parameters, {
+      param1: "active",
+      param2: "pending",
+      param3: "completed",
+    });
+  });
+
+  test("should handle LIKE condition with parameter manager integration", () => {
+    const manager = createParameterManager();
+    const pattern = "John%";
+
+    const [newManager, paramName] = addParameter(manager, pattern);
+    const condition = createLikeCondition("name", pattern, paramName);
+    const sql = generateLikeSql(condition);
+
+    assert.strictEqual(sql, "name LIKE @param1");
+    assert.strictEqual(newManager.parameters.param1, pattern);
+  });
+
+  test("should handle function condition with parameter manager integration", () => {
+    const manager = createParameterManager();
+    const prefix = "John";
+
+    const [newManager, paramName] = addParameter(manager, prefix);
+    const condition = createStartsWithCondition("name", prefix, paramName);
+    const sql = generateFunctionSql(condition);
+
+    assert.strictEqual(sql, "STARTS_WITH(name, @param1)");
+    assert.strictEqual(newManager.parameters.param1, prefix);
+  });
+
+  test("should handle parameter reuse across different condition types", () => {
+    const manager = createParameterManager();
+    const value = "test";
+
+    // Add same value for different condition types
+    const [manager1, param1] = addParameter(manager, value);
+    const [manager2, param2] = addParameter(manager1, value); // Should reuse
+
+    const eqCondition = createEqCondition("column1", value, param1);
+    const likeCondition = createLikeCondition("column2", value, param2);
+
+    const eqSql = generateComparisonSql(eqCondition);
+    const likeSql = generateLikeSql(likeCondition);
+
+    assert.strictEqual(eqSql, "column1 = @param1");
+    assert.strictEqual(likeSql, "column2 LIKE @param1"); // Should use same parameter
+    assert.strictEqual(param1, param2); // Parameters should be the same
+    assert.strictEqual(manager2.counter, 1); // Only one parameter created
+  });
+
+  test("should handle empty arrays correctly in different scenarios", () => {
+    const emptyInCondition = createInCondition("status", [], []);
+    const emptyNotInCondition = createNotInCondition("priority", [], []);
+
+    const inSql = generateInSql(emptyInCondition);
+    const notInSql = generateInSql(emptyNotInCondition);
+
+    assert.strictEqual(inSql, "FALSE");
+    assert.strictEqual(notInSql, "TRUE");
   });
 });
