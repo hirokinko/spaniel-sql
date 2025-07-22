@@ -14,7 +14,8 @@
     "indentStyle": "space",
     "indentWidth": 2,
     "lineWidth": 100,
-    "lineEnding": "lf"
+    "lineEnding": "lf",
+    "formatWithErrors": false
   },
   "javascript": {
     "parser": {
@@ -24,7 +25,10 @@
       "quoteStyle": "double",
       "jsxQuoteStyle": "double",
       "trailingCommas": "es5",
-      "semicolons": "always"
+      "semicolons": "always",
+      "arrowParentheses": "always",
+      "bracketSpacing": true,
+      "bracketSameLine": false
     }
   },
   "json": {
