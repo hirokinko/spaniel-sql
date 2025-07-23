@@ -72,7 +72,7 @@
     - Write unit tests for factory function
     - _Requirements: 1.1, 6.4_
 
-  - [ ] 5.2 Implement basic comparison methods (eq, ne, gt, lt, ge, le)
+  - [x] 5.2 Implement basic comparison methods (eq, ne, gt, lt, ge, le)
 
     - Write eq method that adds equality condition and returns new builder
     - Write ne, gt, lt, ge, le methods for other comparison operators

@@ -614,45 +614,65 @@ export type WhereBuilder<T = any> = {
 };
 
 /**
- * Creates a new WhereBuilder instance with empty condition tree and parameter manager
- * @returns A new WhereBuilder instance
+ * Internal helper to create a WhereBuilder with specific state
+ * @param conditions - The condition group to use
+ * @param parameters - The parameter manager to use
+ * @returns A new WhereBuilder instance with the specified state
  */
-export const createWhere = <T = any>(): WhereBuilder<T> => {
-  const emptyConditions = createAndGroup([]);
-  const emptyParameters = createParameterManager();
-
+const createWhereWithState = <T = any>(
+  conditions: ConditionGroup,
+  parameters: ParameterManager
+): WhereBuilder<T> => {
   const builder: WhereBuilder<T> = {
-    _conditions: emptyConditions,
-    _parameters: emptyParameters,
+    _conditions: conditions,
+    _parameters: parameters,
 
-    eq<K extends keyof T>(_column: K, _value: T[K]): WhereBuilder<T> {
-      // Implementation will be added in subsequent tasks
-      throw new Error("Not implemented yet");
+    eq<K extends keyof T>(column: K, value: T[K]): WhereBuilder<T> {
+      const [newParameters, parameterName] = addParameter(builder._parameters, value);
+      const condition = createEqCondition(String(column), value, parameterName);
+      const newConditions = createAndGroup([...builder._conditions.conditions, condition]);
+
+      return createWhereWithState<T>(newConditions, newParameters);
     },
 
-    ne<K extends keyof T>(_column: K, _value: T[K]): WhereBuilder<T> {
-      // Implementation will be added in subsequent tasks
-      throw new Error("Not implemented yet");
+    ne<K extends keyof T>(column: K, value: T[K]): WhereBuilder<T> {
+      const [newParameters, parameterName] = addParameter(builder._parameters, value);
+      const condition = createNeCondition(String(column), value, parameterName);
+      const newConditions = createAndGroup([...builder._conditions.conditions, condition]);
+
+      return createWhereWithState<T>(newConditions, newParameters);
     },
 
-    lt<K extends keyof T>(_column: K, _value: T[K]): WhereBuilder<T> {
-      // Implementation will be added in subsequent tasks
-      throw new Error("Not implemented yet");
+    lt<K extends keyof T>(column: K, value: T[K]): WhereBuilder<T> {
+      const [newParameters, parameterName] = addParameter(builder._parameters, value);
+      const condition = createLtCondition(String(column), value, parameterName);
+      const newConditions = createAndGroup([...builder._conditions.conditions, condition]);
+
+      return createWhereWithState<T>(newConditions, newParameters);
     },
 
-    gt<K extends keyof T>(_column: K, _value: T[K]): WhereBuilder<T> {
-      // Implementation will be added in subsequent tasks
-      throw new Error("Not implemented yet");
+    gt<K extends keyof T>(column: K, value: T[K]): WhereBuilder<T> {
+      const [newParameters, parameterName] = addParameter(builder._parameters, value);
+      const condition = createGtCondition(String(column), value, parameterName);
+      const newConditions = createAndGroup([...builder._conditions.conditions, condition]);
+
+      return createWhereWithState<T>(newConditions, newParameters);
     },
 
-    le<K extends keyof T>(_column: K, _value: T[K]): WhereBuilder<T> {
-      // Implementation will be added in subsequent tasks
-      throw new Error("Not implemented yet");
+    le<K extends keyof T>(column: K, value: T[K]): WhereBuilder<T> {
+      const [newParameters, parameterName] = addParameter(builder._parameters, value);
+      const condition = createLeCondition(String(column), value, parameterName);
+      const newConditions = createAndGroup([...builder._conditions.conditions, condition]);
+
+      return createWhereWithState<T>(newConditions, newParameters);
     },
 
-    ge<K extends keyof T>(_column: K, _value: T[K]): WhereBuilder<T> {
-      // Implementation will be added in subsequent tasks
-      throw new Error("Not implemented yet");
+    ge<K extends keyof T>(column: K, value: T[K]): WhereBuilder<T> {
+      const [newParameters, parameterName] = addParameter(builder._parameters, value);
+      const condition = createGeCondition(String(column), value, parameterName);
+      const newConditions = createAndGroup([...builder._conditions.conditions, condition]);
+
+      return createWhereWithState<T>(newConditions, newParameters);
     },
 
     in<K extends keyof T>(_column: K, _values: T[K][]): WhereBuilder<T> {
@@ -712,4 +732,15 @@ export const createWhere = <T = any>(): WhereBuilder<T> => {
   };
 
   return builder;
+};
+
+/**
+ * Creates a new WhereBuilder instance with empty condition tree and parameter manager
+ * @returns A new WhereBuilder instance
+ */
+export const createWhere = <T = any>(): WhereBuilder<T> => {
+  const emptyConditions = createAndGroup([]);
+  const emptyParameters = createParameterManager();
+
+  return createWhereWithState<T>(emptyConditions, emptyParameters);
 };

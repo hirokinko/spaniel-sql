@@ -1720,16 +1720,11 @@ describe("WhereBuilder Factory", () => {
     assert.ok(builder !== null);
   });
 
-  test("createWhere methods should throw 'Not implemented yet' errors", () => {
+  test("unimplemented createWhere methods should throw 'Not implemented yet' errors", () => {
     const builder = createWhere();
 
-    // All methods should throw "Not implemented yet" errors since they're placeholders
-    assert.throws(() => builder.eq("column", "value"), /Not implemented yet/);
-    assert.throws(() => builder.ne("column", "value"), /Not implemented yet/);
-    assert.throws(() => builder.lt("column", "value"), /Not implemented yet/);
-    assert.throws(() => builder.gt("column", "value"), /Not implemented yet/);
-    assert.throws(() => builder.le("column", "value"), /Not implemented yet/);
-    assert.throws(() => builder.ge("column", "value"), /Not implemented yet/);
+    // Only unimplemented methods should throw "Not implemented yet" errors
+    // Basic comparison methods (eq, ne, lt, gt, le, ge) are now implemented
     assert.throws(() => builder.in("column", ["value"]), /Not implemented yet/);
     assert.throws(() => builder.notIn("column", ["value"]), /Not implemented yet/);
     assert.throws(() => builder.like("column", "pattern"), /Not implemented yet/);
@@ -1767,5 +1762,349 @@ describe("WhereBuilder Factory", () => {
     // But they should have equivalent content
     assert.deepStrictEqual(builder1._conditions, builder2._conditions);
     assert.deepStrictEqual(builder1._parameters, builder2._parameters);
+  });
+});
+
+describe("createWhere", () => {
+  test("createWhere should create WhereBuilder with empty conditions and parameters", () => {
+    const builder = createWhere();
+
+    assert.ok(typeof builder === "object");
+    assert.ok(typeof builder._conditions === "object");
+    assert.ok(typeof builder._parameters === "object");
+
+    // Should have empty AND group
+    assert.strictEqual(builder._conditions.type, "and");
+    assert.ok(Array.isArray(builder._conditions.conditions));
+    assert.strictEqual(builder._conditions.conditions.length, 0);
+
+    // Should have empty parameter manager
+    assert.deepStrictEqual(builder._parameters.parameters, {});
+    assert.strictEqual(builder._parameters.counter, 0);
+  });
+
+  test("createWhere should return new instance each time", () => {
+    const builder1 = createWhere();
+    const builder2 = createWhere();
+
+    assert.notStrictEqual(builder1, builder2);
+    assert.notStrictEqual(builder1._conditions, builder2._conditions);
+    assert.notStrictEqual(builder1._parameters, builder2._parameters);
+  });
+
+  test("createWhere should support generic type parameter", () => {
+    interface User {
+      id: number;
+      name: string;
+      active: boolean;
+    }
+
+    const builder = createWhere<User>();
+
+    // Type check - this should compile without errors
+    assert.ok(typeof builder === "object");
+    assert.ok(typeof builder.eq === "function");
+    assert.ok(typeof builder.ne === "function");
+    assert.ok(typeof builder.gt === "function");
+    assert.ok(typeof builder.lt === "function");
+    assert.ok(typeof builder.ge === "function");
+    assert.ok(typeof builder.le === "function");
+  });
+
+  test("WhereBuilder methods should exist and be functions", () => {
+    const builder = createWhere();
+
+    // Basic comparison methods
+    assert.ok(typeof builder.eq === "function");
+    assert.ok(typeof builder.ne === "function");
+    assert.ok(typeof builder.gt === "function");
+    assert.ok(typeof builder.lt === "function");
+    assert.ok(typeof builder.ge === "function");
+    assert.ok(typeof builder.le === "function");
+
+    // Array operations
+    assert.ok(typeof builder.in === "function");
+    assert.ok(typeof builder.notIn === "function");
+
+    // String operations
+    assert.ok(typeof builder.like === "function");
+    assert.ok(typeof builder.notLike === "function");
+    assert.ok(typeof builder.startsWith === "function");
+    assert.ok(typeof builder.endsWith === "function");
+
+    // Null checks
+    assert.ok(typeof builder.isNull === "function");
+    assert.ok(typeof builder.isNotNull === "function");
+
+    // Logical operators
+    assert.ok(typeof builder.and === "function");
+    assert.ok(typeof builder.or === "function");
+
+    // Build method
+    assert.ok(typeof builder.build === "function");
+  });
+});
+
+describe("WhereBuilder Basic Comparison Methods", () => {
+  describe("eq method", () => {
+    test("should add equality condition and return new builder", () => {
+      const builder = createWhere();
+      const newBuilder = builder.eq("age", 25);
+
+      // Should return new builder instance
+      assert.notStrictEqual(newBuilder, builder);
+
+      // Should add condition to new builder
+      assert.strictEqual(newBuilder._conditions.conditions.length, 1);
+      const condition = newBuilder._conditions.conditions[0] as Condition;
+      assert.strictEqual(condition.type, "comparison");
+      assert.strictEqual(condition.column, "age");
+      assert.strictEqual(condition.operator, "=");
+      assert.strictEqual(condition.value, 25);
+      assert.strictEqual(condition.parameterName, "@param1");
+
+      // Should add parameter to new builder
+      assert.strictEqual(newBuilder._parameters.counter, 1);
+      assert.strictEqual(newBuilder._parameters.parameters.param1, 25);
+
+      // Original builder should be unchanged
+      assert.strictEqual(builder._conditions.conditions.length, 0);
+      assert.strictEqual(builder._parameters.counter, 0);
+    });
+
+    test("should handle null values correctly", () => {
+      const builder = createWhere();
+      const newBuilder = builder.eq("deleted_at", null);
+
+      const condition = newBuilder._conditions.conditions[0] as Condition;
+      assert.strictEqual(condition.value, null);
+      assert.strictEqual(condition.parameterName, "@param1");
+      assert.strictEqual(newBuilder._parameters.parameters.param1, null);
+    });
+
+    test("should handle different data types", () => {
+      const builder = createWhere();
+
+      const stringBuilder = builder.eq("name", "John");
+      const numberBuilder = stringBuilder.eq("age", 30);
+      const boolBuilder = numberBuilder.eq("active", true);
+
+      // Check string condition
+      const stringCondition = stringBuilder._conditions.conditions[0] as Condition;
+      assert.strictEqual(stringCondition.value, "John");
+      assert.strictEqual(stringCondition.parameterName, "@param1");
+
+      // Check number condition
+      const numberCondition = numberBuilder._conditions.conditions[1] as Condition;
+      assert.strictEqual(numberCondition.value, 30);
+      assert.strictEqual(numberCondition.parameterName, "@param2");
+
+      // Check boolean condition
+      const boolCondition = boolBuilder._conditions.conditions[2] as Condition;
+      assert.strictEqual(boolCondition.value, true);
+      assert.strictEqual(boolCondition.parameterName, "@param3");
+    });
+  });
+
+  describe("ne method", () => {
+    test("should add not-equal condition and return new builder", () => {
+      const builder = createWhere();
+      const newBuilder = builder.ne("status", "inactive");
+
+      // Should return new builder instance
+      assert.notStrictEqual(newBuilder, builder);
+
+      // Should add condition to new builder
+      assert.strictEqual(newBuilder._conditions.conditions.length, 1);
+      const condition = newBuilder._conditions.conditions[0] as Condition;
+      assert.strictEqual(condition.type, "comparison");
+      assert.strictEqual(condition.column, "status");
+      assert.strictEqual(condition.operator, "!=");
+      assert.strictEqual(condition.value, "inactive");
+      assert.strictEqual(condition.parameterName, "@param1");
+
+      // Should add parameter to new builder
+      assert.strictEqual(newBuilder._parameters.counter, 1);
+      assert.strictEqual(newBuilder._parameters.parameters.param1, "inactive");
+    });
+
+    test("should handle null values correctly", () => {
+      const builder = createWhere();
+      const newBuilder = builder.ne("deleted_at", null);
+
+      const condition = newBuilder._conditions.conditions[0] as Condition;
+      assert.strictEqual(condition.value, null);
+      assert.strictEqual(condition.operator, "!=");
+    });
+  });
+
+  describe("gt method", () => {
+    test("should add greater-than condition and return new builder", () => {
+      const builder = createWhere();
+      const newBuilder = builder.gt("age", 18);
+
+      // Should return new builder instance
+      assert.notStrictEqual(newBuilder, builder);
+
+      // Should add condition to new builder
+      assert.strictEqual(newBuilder._conditions.conditions.length, 1);
+      const condition = newBuilder._conditions.conditions[0] as Condition;
+      assert.strictEqual(condition.type, "comparison");
+      assert.strictEqual(condition.column, "age");
+      assert.strictEqual(condition.operator, ">");
+      assert.strictEqual(condition.value, 18);
+      assert.strictEqual(condition.parameterName, "@param1");
+
+      // Should add parameter to new builder
+      assert.strictEqual(newBuilder._parameters.counter, 1);
+      assert.strictEqual(newBuilder._parameters.parameters.param1, 18);
+    });
+  });
+
+  describe("lt method", () => {
+    test("should add less-than condition and return new builder", () => {
+      const builder = createWhere();
+      const newBuilder = builder.lt("score", 100);
+
+      // Should return new builder instance
+      assert.notStrictEqual(newBuilder, builder);
+
+      // Should add condition to new builder
+      assert.strictEqual(newBuilder._conditions.conditions.length, 1);
+      const condition = newBuilder._conditions.conditions[0] as Condition;
+      assert.strictEqual(condition.type, "comparison");
+      assert.strictEqual(condition.column, "score");
+      assert.strictEqual(condition.operator, "<");
+      assert.strictEqual(condition.value, 100);
+      assert.strictEqual(condition.parameterName, "@param1");
+
+      // Should add parameter to new builder
+      assert.strictEqual(newBuilder._parameters.counter, 1);
+      assert.strictEqual(newBuilder._parameters.parameters.param1, 100);
+    });
+  });
+
+  describe("ge method", () => {
+    test("should add greater-than-or-equal condition and return new builder", () => {
+      const builder = createWhere();
+      const newBuilder = builder.ge("rating", 4.5);
+
+      // Should return new builder instance
+      assert.notStrictEqual(newBuilder, builder);
+
+      // Should add condition to new builder
+      assert.strictEqual(newBuilder._conditions.conditions.length, 1);
+      const condition = newBuilder._conditions.conditions[0] as Condition;
+      assert.strictEqual(condition.type, "comparison");
+      assert.strictEqual(condition.column, "rating");
+      assert.strictEqual(condition.operator, ">=");
+      assert.strictEqual(condition.value, 4.5);
+      assert.strictEqual(condition.parameterName, "@param1");
+
+      // Should add parameter to new builder
+      assert.strictEqual(newBuilder._parameters.counter, 1);
+      assert.strictEqual(newBuilder._parameters.parameters.param1, 4.5);
+    });
+  });
+
+  describe("le method", () => {
+    test("should add less-than-or-equal condition and return new builder", () => {
+      const builder = createWhere();
+      const newBuilder = builder.le("price", 99.99);
+
+      // Should return new builder instance
+      assert.notStrictEqual(newBuilder, builder);
+
+      // Should add condition to new builder
+      assert.strictEqual(newBuilder._conditions.conditions.length, 1);
+      const condition = newBuilder._conditions.conditions[0] as Condition;
+      assert.strictEqual(condition.type, "comparison");
+      assert.strictEqual(condition.column, "price");
+      assert.strictEqual(condition.operator, "<=");
+      assert.strictEqual(condition.value, 99.99);
+      assert.strictEqual(condition.parameterName, "@param1");
+
+      // Should add parameter to new builder
+      assert.strictEqual(newBuilder._parameters.counter, 1);
+      assert.strictEqual(newBuilder._parameters.parameters.param1, 99.99);
+    });
+  });
+
+  describe("method chaining", () => {
+    test("should support chaining multiple comparison methods", () => {
+      const builder = createWhere();
+      const result = builder.eq("status", "active").gt("age", 18).le("score", 100);
+
+      // Should have 3 conditions
+      assert.strictEqual(result._conditions.conditions.length, 3);
+
+      // Check first condition
+      const condition1 = result._conditions.conditions[0] as Condition;
+      assert.strictEqual(condition1.column, "status");
+      assert.strictEqual(condition1.operator, "=");
+      assert.strictEqual(condition1.value, "active");
+
+      // Check second condition
+      const condition2 = result._conditions.conditions[1] as Condition;
+      assert.strictEqual(condition2.column, "age");
+      assert.strictEqual(condition2.operator, ">");
+      assert.strictEqual(condition2.value, 18);
+
+      // Check third condition
+      const condition3 = result._conditions.conditions[2] as Condition;
+      assert.strictEqual(condition3.column, "score");
+      assert.strictEqual(condition3.operator, "<=");
+      assert.strictEqual(condition3.value, 100);
+
+      // Should have 3 parameters
+      assert.strictEqual(result._parameters.counter, 3);
+      assert.strictEqual(result._parameters.parameters.param1, "active");
+      assert.strictEqual(result._parameters.parameters.param2, 18);
+      assert.strictEqual(result._parameters.parameters.param3, 100);
+    });
+
+    test("should reuse parameters for same values", () => {
+      const builder = createWhere();
+      const result = builder.eq("status", "active").ne("type", "inactive").eq("category", "active"); // Same value as first condition
+
+      // Should have 3 conditions
+      assert.strictEqual(result._conditions.conditions.length, 3);
+
+      // Should reuse parameter for same value
+      const condition1 = result._conditions.conditions[0] as Condition;
+      const condition3 = result._conditions.conditions[2] as Condition;
+      assert.strictEqual(condition1.parameterName, "@param1");
+      assert.strictEqual(condition3.parameterName, "@param1"); // Reused
+
+      // Should have only 2 unique parameters
+      assert.strictEqual(result._parameters.counter, 2);
+      assert.strictEqual(result._parameters.parameters.param1, "active");
+      assert.strictEqual(result._parameters.parameters.param2, "inactive");
+    });
+  });
+
+  describe("immutability", () => {
+    test("should maintain immutability across method calls", () => {
+      const builder = createWhere();
+      const builder1 = builder.eq("name", "John");
+      const builder2 = builder1.gt("age", 25);
+
+      // Each builder should be a different instance
+      assert.notStrictEqual(builder, builder1);
+      assert.notStrictEqual(builder1, builder2);
+      assert.notStrictEqual(builder, builder2);
+
+      // Original builder should remain unchanged
+      assert.strictEqual(builder._conditions.conditions.length, 0);
+      assert.strictEqual(builder._parameters.counter, 0);
+
+      // First builder should have only first condition
+      assert.strictEqual(builder1._conditions.conditions.length, 1);
+      assert.strictEqual(builder1._parameters.counter, 1);
+
+      // Second builder should have both conditions
+      assert.strictEqual(builder2._conditions.conditions.length, 2);
+      assert.strictEqual(builder2._parameters.counter, 2);
+    });
   });
 });
