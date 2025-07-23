@@ -3,6 +3,52 @@
  */
 
 /**
+ * Valid parameter value types for Cloud Spanner queries
+ */
+export type ParameterValue =
+  | string
+  | number
+  | boolean
+  | null
+  | undefined
+  | Date
+  | Buffer
+  | ParameterValue[];
+
+/**
+ * Type guard to check if a value is a valid ParameterValue
+ */
+export const isParameterValue = (value: unknown): value is ParameterValue => {
+  if (value === null || value === undefined) {
+    return true;
+  }
+
+  const type = typeof value;
+  if (type === "string" || type === "number" || type === "boolean") {
+    return true;
+  }
+
+  if (value instanceof Date || value instanceof Buffer) {
+    return true;
+  }
+
+  if (Array.isArray(value)) {
+    return value.every((item) => isParameterValue(item));
+  }
+
+  return false;
+};
+
+/**
+ * Type assertion function that throws if value is not a ParameterValue
+ */
+export function assertParameterValue(value: unknown): asserts value is ParameterValue {
+  if (!isParameterValue(value)) {
+    throw new Error(`Invalid parameter value: ${typeof value}. Expected ParameterValue.`);
+  }
+}
+
+/**
  * Cloud Spanner data types
  */
 export type SpannerDataType =
@@ -40,7 +86,7 @@ export interface QueryResult {
   /** Generated SQL string with parameter placeholders */
   sql: string;
   /** Parameter values mapped by parameter names */
-  parameters: Record<string, any>;
+  parameters: Record<string, ParameterValue>;
   /** Type hints for parameters to send to Spanner API */
   types?: Record<string, SpannerTypeHint>;
 }
@@ -56,7 +102,7 @@ export interface TableSchema {
  * Immutable parameter manager for handling query parameters
  */
 export type ParameterManager = {
-  readonly parameters: Record<string, any>;
+  readonly parameters: Record<string, ParameterValue>;
   readonly counter: number;
 };
 
@@ -74,7 +120,10 @@ export const createParameterManager = (): ParameterManager => ({
  * @param value - The value to add as a parameter
  * @returns A tuple containing the new manager and the parameter name (with @ prefix)
  */
-export const addParameter = (manager: ParameterManager, value: any): [ParameterManager, string] => {
+export const addParameter = (
+  manager: ParameterManager,
+  value: ParameterValue
+): [ParameterManager, string] => {
   // Check if value already exists to reuse parameter
   const existingParam = Object.entries(manager.parameters).find(([_, v]) => {
     // Use strict equality for primitive values and null/undefined
@@ -127,9 +176,9 @@ export interface Condition {
   /** SQL operator or function name */
   operator: string;
   /** Single value for comparison conditions */
-  value?: any;
+  value?: ParameterValue;
   /** Array of values for IN operations */
-  values?: any[];
+  values?: ParameterValue[];
   /** Parameter name used in SQL (with @ prefix) */
   parameterName?: string;
   /** Array of parameter names for IN operations */
@@ -171,7 +220,7 @@ export const isConditionGroup = (node: ConditionNode): node is ConditionGroup =>
 export const createComparisonCondition = (
   column: string,
   operator: ComparisonOperator,
-  value: any,
+  value: ParameterValue,
   parameterName: string
 ): Condition => ({
   type: "comparison",
@@ -184,45 +233,63 @@ export const createComparisonCondition = (
 /**
  * Creates an equality condition (=)
  */
-export const createEqCondition = (column: string, value: any, parameterName: string): Condition =>
-  createComparisonCondition(column, "=", value, parameterName);
+export const createEqCondition = (
+  column: string,
+  value: ParameterValue,
+  parameterName: string
+): Condition => createComparisonCondition(column, "=", value, parameterName);
 
 /**
  * Creates a not-equal condition (!=)
  */
-export const createNeCondition = (column: string, value: any, parameterName: string): Condition =>
-  createComparisonCondition(column, "!=", value, parameterName);
+export const createNeCondition = (
+  column: string,
+  value: ParameterValue,
+  parameterName: string
+): Condition => createComparisonCondition(column, "!=", value, parameterName);
 
 /**
  * Creates a greater-than condition (>)
  */
-export const createGtCondition = (column: string, value: any, parameterName: string): Condition =>
-  createComparisonCondition(column, ">", value, parameterName);
+export const createGtCondition = (
+  column: string,
+  value: ParameterValue,
+  parameterName: string
+): Condition => createComparisonCondition(column, ">", value, parameterName);
 
 /**
  * Creates a less-than condition (<)
  */
-export const createLtCondition = (column: string, value: any, parameterName: string): Condition =>
-  createComparisonCondition(column, "<", value, parameterName);
+export const createLtCondition = (
+  column: string,
+  value: ParameterValue,
+  parameterName: string
+): Condition => createComparisonCondition(column, "<", value, parameterName);
 
 /**
  * Creates a greater-than-or-equal condition (>=)
  */
-export const createGeCondition = (column: string, value: any, parameterName: string): Condition =>
-  createComparisonCondition(column, ">=", value, parameterName);
+export const createGeCondition = (
+  column: string,
+  value: ParameterValue,
+  parameterName: string
+): Condition => createComparisonCondition(column, ">=", value, parameterName);
 
 /**
  * Creates a less-than-or-equal condition (<=)
  */
-export const createLeCondition = (column: string, value: any, parameterName: string): Condition =>
-  createComparisonCondition(column, "<=", value, parameterName);
+export const createLeCondition = (
+  column: string,
+  value: ParameterValue,
+  parameterName: string
+): Condition => createComparisonCondition(column, "<=", value, parameterName);
 
 /**
  * Creates an IN condition
  */
 export const createInCondition = (
   column: string,
-  values: any[],
+  values: ParameterValue[],
   parameterNames: string[]
 ): Condition => ({
   type: "in",
@@ -237,7 +304,7 @@ export const createInCondition = (
  */
 export const createNotInCondition = (
   column: string,
-  values: any[],
+  values: ParameterValue[],
   parameterNames: string[]
 ): Condition => ({
   type: "in",
@@ -252,7 +319,7 @@ export const createNotInCondition = (
  */
 export const createInUnnestCondition = (
   column: string,
-  values: any[],
+  values: ParameterValue[],
   parameterName: string
 ): Condition => ({
   type: "in",
@@ -267,7 +334,7 @@ export const createInUnnestCondition = (
  */
 export const createNotInUnnestCondition = (
   column: string,
-  values: any[],
+  values: ParameterValue[],
   parameterName: string
 ): Condition => ({
   type: "in",
@@ -527,7 +594,7 @@ export const generateConditionSql = (node: ConditionNode): string => {
       case "null":
         return generateNullSql(node);
       default:
-        throw new Error(`Unsupported condition type: ${(node as any).type}`);
+        throw new Error(`Unsupported condition type: ${(node as Condition).type}`);
     }
   } else if (isConditionGroup(node)) {
     // Handle condition groups recursively
@@ -579,7 +646,9 @@ export const generateLogicalSql = (group: ConditionGroup): string => {
 /**
  * WhereBuilder type - immutable object with fluent interface methods
  */
-export type WhereBuilder<T = any> = {
+export type WhereBuilder<
+  T extends Record<string, ParameterValue> = Record<string, ParameterValue>,
+> = {
   readonly _conditions: ConditionGroup;
   readonly _parameters: ParameterManager;
 
@@ -619,7 +688,9 @@ export type WhereBuilder<T = any> = {
  * @param parameters - The parameter manager to use
  * @returns A new WhereBuilder instance with the specified state
  */
-const createWhereWithState = <T = any>(
+const createWhereWithState = <
+  T extends Record<string, ParameterValue> = Record<string, ParameterValue>,
+>(
   conditions: ConditionGroup,
   parameters: ParameterManager
 ): WhereBuilder<T> => {
@@ -628,6 +699,7 @@ const createWhereWithState = <T = any>(
     _parameters: parameters,
 
     eq<K extends keyof T>(column: K, value: T[K]): WhereBuilder<T> {
+      assertParameterValue(value);
       const [newParameters, parameterName] = addParameter(builder._parameters, value);
       const condition = createEqCondition(String(column), value, parameterName);
       const newConditions = createAndGroup([...builder._conditions.conditions, condition]);
@@ -636,6 +708,7 @@ const createWhereWithState = <T = any>(
     },
 
     ne<K extends keyof T>(column: K, value: T[K]): WhereBuilder<T> {
+      assertParameterValue(value);
       const [newParameters, parameterName] = addParameter(builder._parameters, value);
       const condition = createNeCondition(String(column), value, parameterName);
       const newConditions = createAndGroup([...builder._conditions.conditions, condition]);
@@ -644,6 +717,7 @@ const createWhereWithState = <T = any>(
     },
 
     lt<K extends keyof T>(column: K, value: T[K]): WhereBuilder<T> {
+      assertParameterValue(value);
       const [newParameters, parameterName] = addParameter(builder._parameters, value);
       const condition = createLtCondition(String(column), value, parameterName);
       const newConditions = createAndGroup([...builder._conditions.conditions, condition]);
@@ -652,6 +726,7 @@ const createWhereWithState = <T = any>(
     },
 
     gt<K extends keyof T>(column: K, value: T[K]): WhereBuilder<T> {
+      assertParameterValue(value);
       const [newParameters, parameterName] = addParameter(builder._parameters, value);
       const condition = createGtCondition(String(column), value, parameterName);
       const newConditions = createAndGroup([...builder._conditions.conditions, condition]);
@@ -660,6 +735,7 @@ const createWhereWithState = <T = any>(
     },
 
     le<K extends keyof T>(column: K, value: T[K]): WhereBuilder<T> {
+      assertParameterValue(value);
       const [newParameters, parameterName] = addParameter(builder._parameters, value);
       const condition = createLeCondition(String(column), value, parameterName);
       const newConditions = createAndGroup([...builder._conditions.conditions, condition]);
@@ -668,6 +744,7 @@ const createWhereWithState = <T = any>(
     },
 
     ge<K extends keyof T>(column: K, value: T[K]): WhereBuilder<T> {
+      assertParameterValue(value);
       const [newParameters, parameterName] = addParameter(builder._parameters, value);
       const condition = createGeCondition(String(column), value, parameterName);
       const newConditions = createAndGroup([...builder._conditions.conditions, condition]);
@@ -696,12 +773,15 @@ const createWhereWithState = <T = any>(
       const parameterNames: string[] = [];
 
       for (const value of values) {
+        assertParameterValue(value);
         const [newParameters, paramName] = addParameter(currentParameters, value);
         currentParameters = newParameters;
         parameterNames.push(paramName);
       }
 
-      const condition = createInCondition(String(column), values, parameterNames);
+      // Type assertion for the entire array after individual validation
+      const validatedValues = values as ParameterValue[];
+      const condition = createInCondition(String(column), validatedValues, parameterNames);
       const newConditions = createAndGroup([...builder._conditions.conditions, condition]);
 
       return createWhereWithState<T>(newConditions, currentParameters);
@@ -728,35 +808,50 @@ const createWhereWithState = <T = any>(
       const parameterNames: string[] = [];
 
       for (const value of values) {
+        assertParameterValue(value);
         const [newParameters, paramName] = addParameter(currentParameters, value);
         currentParameters = newParameters;
         parameterNames.push(paramName);
       }
 
-      const condition = createNotInCondition(String(column), values, parameterNames);
+      // Type assertion for the entire array after individual validation
+      const validatedValues = values as ParameterValue[];
+      const condition = createNotInCondition(String(column), validatedValues, parameterNames);
       const newConditions = createAndGroup([...builder._conditions.conditions, condition]);
 
       return createWhereWithState<T>(newConditions, currentParameters);
     },
 
-    like<K extends keyof T>(_column: K, _pattern: string): WhereBuilder<T> {
-      // Implementation will be added in subsequent tasks
-      throw new Error("Not implemented yet");
+    like<K extends keyof T>(column: K, pattern: string): WhereBuilder<T> {
+      const [newParameters, parameterName] = addParameter(builder._parameters, pattern);
+      const condition = createLikeCondition(String(column), pattern, parameterName);
+      const newConditions = createAndGroup([...builder._conditions.conditions, condition]);
+
+      return createWhereWithState<T>(newConditions, newParameters);
     },
 
-    notLike<K extends keyof T>(_column: K, _pattern: string): WhereBuilder<T> {
-      // Implementation will be added in subsequent tasks
-      throw new Error("Not implemented yet");
+    notLike<K extends keyof T>(column: K, pattern: string): WhereBuilder<T> {
+      const [newParameters, parameterName] = addParameter(builder._parameters, pattern);
+      const condition = createNotLikeCondition(String(column), pattern, parameterName);
+      const newConditions = createAndGroup([...builder._conditions.conditions, condition]);
+
+      return createWhereWithState<T>(newConditions, newParameters);
     },
 
-    startsWith<K extends keyof T>(_column: K, _prefix: string): WhereBuilder<T> {
-      // Implementation will be added in subsequent tasks
-      throw new Error("Not implemented yet");
+    startsWith<K extends keyof T>(column: K, prefix: string): WhereBuilder<T> {
+      const [newParameters, parameterName] = addParameter(builder._parameters, prefix);
+      const condition = createStartsWithCondition(String(column), prefix, parameterName);
+      const newConditions = createAndGroup([...builder._conditions.conditions, condition]);
+
+      return createWhereWithState<T>(newConditions, newParameters);
     },
 
-    endsWith<K extends keyof T>(_column: K, _suffix: string): WhereBuilder<T> {
-      // Implementation will be added in subsequent tasks
-      throw new Error("Not implemented yet");
+    endsWith<K extends keyof T>(column: K, suffix: string): WhereBuilder<T> {
+      const [newParameters, parameterName] = addParameter(builder._parameters, suffix);
+      const condition = createEndsWithCondition(String(column), suffix, parameterName);
+      const newConditions = createAndGroup([...builder._conditions.conditions, condition]);
+
+      return createWhereWithState<T>(newConditions, newParameters);
     },
 
     isNull<K extends keyof T>(_column: K): WhereBuilder<T> {
@@ -792,7 +887,9 @@ const createWhereWithState = <T = any>(
  * Creates a new WhereBuilder instance with empty condition tree and parameter manager
  * @returns A new WhereBuilder instance
  */
-export const createWhere = <T = any>(): WhereBuilder<T> => {
+export const createWhere = <
+  T extends Record<string, ParameterValue> = Record<string, ParameterValue>,
+>(): WhereBuilder<T> => {
   const emptyConditions = createAndGroup([]);
   const emptyParameters = createParameterManager();
 

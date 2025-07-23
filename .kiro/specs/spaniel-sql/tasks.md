@@ -89,7 +89,7 @@
 
 - [ ] 6. Implement string pattern and null check methods
 
-  - [ ] 6.1 Create string pattern methods (like, notLike, startsWith, endsWith)
+  - [x] 6.1 Create string pattern methods (like, notLike, startsWith, endsWith)
 
     - Write like and notLike methods for pattern matching
     - Write startsWith method that generates STARTS_WITH function calls

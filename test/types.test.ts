@@ -5,6 +5,7 @@ import {
   type ComparisonOperator,
   type Condition,
   type ConditionGroup,
+  type ConditionNode,
   type ConditionType,
   createAndGroup,
   createComparisonCondition,
@@ -38,11 +39,11 @@ import {
   isConditionGroup,
   type LogicalOperator,
   type ParameterManager,
+  type ParameterValue,
   type QueryResult,
   type SpannerDataType,
   type SpannerTypeHint,
   type TableSchema,
-  type WhereBuilder,
 } from "../src/types";
 
 describe("Core Types", () => {
@@ -301,25 +302,24 @@ describe("addParameter", () => {
     assert.deepStrictEqual(manager2.parameters.param1, []);
   });
 
-  test("should handle object references correctly", () => {
+  test("should handle array references correctly", () => {
     const manager = createParameterManager();
-    const obj1 = { key: "value" };
-    const obj2 = { key: "value" }; // Same content, different reference
+    const arr1 = [1, 2, 3];
+    const arr2 = [1, 2, 3]; // Same content, different reference
 
-    const [manager1, param1] = addParameter(manager, obj1);
-    const [manager2, param2] = addParameter(manager1, obj1); // Same reference
-    const [manager3, param3] = addParameter(manager2, obj2); // Different reference
+    const [manager1, param1] = addParameter(manager, arr1);
+    const [manager2, param2] = addParameter(manager1, arr1); // Same reference
+    const [manager3, param3] = addParameter(manager2, arr2); // Different reference
 
     // Should reuse for same reference
     assert.strictEqual(param1, "@param1");
     assert.strictEqual(param2, "@param1");
 
-    // Should create new parameter for different reference
-    assert.strictEqual(param3, "@param2");
+    // Should create new parameter for different reference (arrays are compared by content)
+    assert.strictEqual(param3, "@param1"); // Arrays with same content reuse parameters
 
-    assert.strictEqual(manager3.counter, 2);
-    assert.strictEqual(manager3.parameters.param1, obj1);
-    assert.strictEqual(manager3.parameters.param2, obj2);
+    assert.strictEqual(manager3.counter, 1);
+    assert.deepStrictEqual(manager3.parameters.param1, arr1);
   });
 
   test("should handle mixed value types in sequence", () => {
@@ -1099,7 +1099,7 @@ describe("SQL Generation for Array Operations (IN/NOT IN)", () => {
     const condition: Condition = {
       type: "in",
       column: "status",
-      operator: "INVALID_OPERATOR" as any,
+      operator: "INVALID_OPERATOR" as string,
       values: ["active"],
       parameterName: "@param1",
     };
@@ -1474,7 +1474,7 @@ describe("SQL Generation for Logical Operators", () => {
   test("generateLogicalSql should throw error for non-condition-group input", () => {
     const condition = createEqCondition("age", 25, "@param1");
 
-    assert.throws(() => generateLogicalSql(condition as any), {
+    assert.throws(() => generateLogicalSql(condition as unknown as ConditionGroup), {
       name: "Error",
       message: "Expected condition group",
     });
@@ -1556,7 +1556,7 @@ describe("Unified SQL Generation", () => {
 
   test("generateConditionSql should throw error for unsupported condition types", () => {
     const invalidCondition: Condition = {
-      type: "invalid" as any,
+      type: "invalid" as ConditionType,
       column: "test",
       operator: "INVALID",
     };
@@ -1568,7 +1568,7 @@ describe("Unified SQL Generation", () => {
   });
 
   test("generateConditionSql should throw error for invalid condition nodes", () => {
-    const invalidNode = { invalid: "node" } as any;
+    const invalidNode = { invalid: "node" } as unknown as ConditionNode;
 
     assert.throws(() => generateConditionSql(invalidNode), {
       name: "Error",
@@ -1698,7 +1698,7 @@ describe("WhereBuilder Factory", () => {
   });
 
   test("createWhere should support generic type parameter", () => {
-    interface User {
+    interface User extends Record<string, ParameterValue> {
       id: number;
       name: string;
       active: boolean;
@@ -1723,12 +1723,14 @@ describe("WhereBuilder Factory", () => {
   test("unimplemented createWhere methods should throw 'Not implemented yet' errors", () => {
     const builder = createWhere();
 
+    // String pattern methods are now implemented, so they should not throw errors
     // Only unimplemented methods should throw "Not implemented yet" errors
-    // Basic comparison methods (eq, ne, lt, gt, le, ge) and array methods (in, notIn) are now implemented
-    assert.throws(() => builder.like("column", "pattern"), /Not implemented yet/);
-    assert.throws(() => builder.notLike("column", "pattern"), /Not implemented yet/);
-    assert.throws(() => builder.startsWith("column", "prefix"), /Not implemented yet/);
-    assert.throws(() => builder.endsWith("column", "suffix"), /Not implemented yet/);
+    assert.doesNotThrow(() => builder.like("column", "pattern"));
+    assert.doesNotThrow(() => builder.notLike("column", "pattern"));
+    assert.doesNotThrow(() => builder.startsWith("column", "prefix"));
+    assert.doesNotThrow(() => builder.endsWith("column", "suffix"));
+
+    // These methods are still unimplemented
     assert.throws(() => builder.isNull("column"), /Not implemented yet/);
     assert.throws(() => builder.isNotNull("column"), /Not implemented yet/);
     assert.throws(() => builder.and(() => builder), /Not implemented yet/);
@@ -1791,7 +1793,7 @@ describe("createWhere", () => {
   });
 
   test("createWhere should support generic type parameter", () => {
-    interface User {
+    interface User extends Record<string, ParameterValue> {
       id: number;
       name: string;
       active: boolean;
@@ -2420,6 +2422,333 @@ describe("WhereBuilder Array Operations", () => {
       // Second builder should have both conditions
       assert.strictEqual(builder2._conditions.conditions.length, 2);
       assert.strictEqual(builder2._parameters.counter, 5);
+    });
+  });
+});
+
+describe("WhereBuilder String Pattern Methods", () => {
+  describe("like method", () => {
+    test("should create LIKE condition and return new builder", () => {
+      const builder = createWhere();
+      const newBuilder = builder.like("name", "John%");
+
+      // Should return new builder instance
+      assert.notStrictEqual(newBuilder, builder);
+
+      // Should have one condition in the new builder
+      assert.strictEqual(newBuilder._conditions.conditions.length, 1);
+
+      const condition = newBuilder._conditions.conditions[0] as Condition;
+      assert.strictEqual(condition.type, "like");
+      assert.strictEqual(condition.column, "name");
+      assert.strictEqual(condition.operator, "LIKE");
+      assert.strictEqual(condition.value, "John%");
+      assert.strictEqual(condition.parameterName, "@param1");
+
+      // Should have parameter in manager
+      assert.strictEqual(newBuilder._parameters.counter, 1);
+      assert.strictEqual(newBuilder._parameters.parameters.param1, "John%");
+
+      // Original builder should be unchanged
+      assert.strictEqual(builder._conditions.conditions.length, 0);
+      assert.strictEqual(builder._parameters.counter, 0);
+    });
+
+    test("should handle different pattern types", () => {
+      const patterns = [
+        "John%", // starts with
+        "%Smith", // ends with
+        "%John%", // contains
+        "J_hn", // single character wildcard
+        "John", // exact match
+        "", // empty pattern
+      ];
+
+      patterns.forEach((pattern, _index) => {
+        const freshBuilder = createWhere();
+        const newBuilder = freshBuilder.like("name", pattern);
+        const condition = newBuilder._conditions.conditions[0] as Condition;
+
+        assert.strictEqual(condition.type, "like");
+        assert.strictEqual(condition.operator, "LIKE");
+        assert.strictEqual(condition.value, pattern);
+        assert.strictEqual(condition.parameterName, "@param1"); // Always @param1 since each test uses a fresh builder
+      });
+    });
+
+    test("should reuse parameters for same pattern", () => {
+      const builder = createWhere();
+
+      const builder1 = builder.like("name", "John%");
+      const builder2 = builder1.like("title", "John%"); // Same pattern
+
+      // Should reuse the same parameter
+      const condition1 = builder2._conditions.conditions[0] as Condition;
+      const condition2 = builder2._conditions.conditions[1] as Condition;
+
+      assert.strictEqual(condition1.parameterName, "@param1");
+      assert.strictEqual(condition2.parameterName, "@param1");
+      assert.strictEqual(builder2._parameters.counter, 1);
+    });
+  });
+
+  describe("notLike method", () => {
+    test("should create NOT LIKE condition and return new builder", () => {
+      const builder = createWhere();
+      const newBuilder = builder.notLike("email", "%@spam.com");
+
+      // Should return new builder instance
+      assert.notStrictEqual(newBuilder, builder);
+
+      // Should have one condition in the new builder
+      assert.strictEqual(newBuilder._conditions.conditions.length, 1);
+
+      const condition = newBuilder._conditions.conditions[0] as Condition;
+      assert.strictEqual(condition.type, "like");
+      assert.strictEqual(condition.column, "email");
+      assert.strictEqual(condition.operator, "NOT LIKE");
+      assert.strictEqual(condition.value, "%@spam.com");
+      assert.strictEqual(condition.parameterName, "@param1");
+
+      // Should have parameter in manager
+      assert.strictEqual(newBuilder._parameters.counter, 1);
+      assert.strictEqual(newBuilder._parameters.parameters.param1, "%@spam.com");
+    });
+
+    test("should handle different exclusion patterns", () => {
+      const patterns = [
+        "%@spam.com", // ends with exclusion
+        "test%", // starts with exclusion
+        "%blocked%", // contains exclusion
+      ];
+
+      patterns.forEach((pattern, _index) => {
+        const freshBuilder = createWhere();
+        const newBuilder = freshBuilder.notLike("email", pattern);
+        const condition = newBuilder._conditions.conditions[0] as Condition;
+
+        assert.strictEqual(condition.type, "like");
+        assert.strictEqual(condition.operator, "NOT LIKE");
+        assert.strictEqual(condition.value, pattern);
+        assert.strictEqual(condition.parameterName, "@param1"); // Each fresh builder starts with param1
+      });
+    });
+  });
+
+  describe("startsWith method", () => {
+    test("should create STARTS_WITH function condition and return new builder", () => {
+      const builder = createWhere();
+      const newBuilder = builder.startsWith("name", "John");
+
+      // Should return new builder instance
+      assert.notStrictEqual(newBuilder, builder);
+
+      // Should have one condition in the new builder
+      assert.strictEqual(newBuilder._conditions.conditions.length, 1);
+
+      const condition = newBuilder._conditions.conditions[0] as Condition;
+      assert.strictEqual(condition.type, "function");
+      assert.strictEqual(condition.column, "name");
+      assert.strictEqual(condition.operator, "STARTS_WITH");
+      assert.strictEqual(condition.value, "John");
+      assert.strictEqual(condition.parameterName, "@param1");
+
+      // Should have parameter in manager
+      assert.strictEqual(newBuilder._parameters.counter, 1);
+      assert.strictEqual(newBuilder._parameters.parameters.param1, "John");
+    });
+
+    test("should handle different prefix types", () => {
+      const prefixes = [
+        "John", // normal prefix
+        "J", // single character
+        "", // empty prefix
+        "John Doe", // prefix with space
+      ];
+
+      prefixes.forEach((prefix, _index) => {
+        const freshBuilder = createWhere();
+        const newBuilder = freshBuilder.startsWith("name", prefix);
+        const condition = newBuilder._conditions.conditions[0] as Condition;
+
+        assert.strictEqual(condition.type, "function");
+        assert.strictEqual(condition.operator, "STARTS_WITH");
+        assert.strictEqual(condition.value, prefix);
+        assert.strictEqual(condition.parameterName, "@param1"); // Each fresh builder starts with param1
+      });
+    });
+  });
+
+  describe("endsWith method", () => {
+    test("should create ENDS_WITH function condition and return new builder", () => {
+      const builder = createWhere();
+      const newBuilder = builder.endsWith("email", "@example.com");
+
+      // Should return new builder instance
+      assert.notStrictEqual(newBuilder, builder);
+
+      // Should have one condition in the new builder
+      assert.strictEqual(newBuilder._conditions.conditions.length, 1);
+
+      const condition = newBuilder._conditions.conditions[0] as Condition;
+      assert.strictEqual(condition.type, "function");
+      assert.strictEqual(condition.column, "email");
+      assert.strictEqual(condition.operator, "ENDS_WITH");
+      assert.strictEqual(condition.value, "@example.com");
+      assert.strictEqual(condition.parameterName, "@param1");
+
+      // Should have parameter in manager
+      assert.strictEqual(newBuilder._parameters.counter, 1);
+      assert.strictEqual(newBuilder._parameters.parameters.param1, "@example.com");
+    });
+
+    test("should handle different suffix types", () => {
+      const suffixes = [
+        "@example.com", // email domain
+        ".txt", // file extension
+        "son", // name ending
+        "", // empty suffix
+      ];
+
+      suffixes.forEach((suffix, _index) => {
+        const freshBuilder = createWhere();
+        const newBuilder = freshBuilder.endsWith("field", suffix);
+        const condition = newBuilder._conditions.conditions[0] as Condition;
+
+        assert.strictEqual(condition.type, "function");
+        assert.strictEqual(condition.operator, "ENDS_WITH");
+        assert.strictEqual(condition.value, suffix);
+        assert.strictEqual(condition.parameterName, "@param1"); // Each fresh builder starts with param1
+      });
+    });
+  });
+
+  describe("string pattern method chaining", () => {
+    test("should support chaining multiple string pattern methods", () => {
+      const builder = createWhere();
+
+      const newBuilder = builder
+        .like("name", "John%")
+        .notLike("email", "%@spam.com")
+        .startsWith("title", "Mr.")
+        .endsWith("phone", "1234");
+
+      // Should have 4 conditions
+      assert.strictEqual(newBuilder._conditions.conditions.length, 4);
+
+      const conditions = newBuilder._conditions.conditions as Condition[];
+
+      // Check LIKE condition
+      assert.strictEqual(conditions[0].type, "like");
+      assert.strictEqual(conditions[0].operator, "LIKE");
+      assert.strictEqual(conditions[0].value, "John%");
+
+      // Check NOT LIKE condition
+      assert.strictEqual(conditions[1].type, "like");
+      assert.strictEqual(conditions[1].operator, "NOT LIKE");
+      assert.strictEqual(conditions[1].value, "%@spam.com");
+
+      // Check STARTS_WITH condition
+      assert.strictEqual(conditions[2].type, "function");
+      assert.strictEqual(conditions[2].operator, "STARTS_WITH");
+      assert.strictEqual(conditions[2].value, "Mr.");
+
+      // Check ENDS_WITH condition
+      assert.strictEqual(conditions[3].type, "function");
+      assert.strictEqual(conditions[3].operator, "ENDS_WITH");
+      assert.strictEqual(conditions[3].value, "1234");
+
+      // Should have 4 parameters
+      assert.strictEqual(newBuilder._parameters.counter, 4);
+    });
+
+    test("should chain with comparison and array methods", () => {
+      const builder = createWhere();
+
+      const newBuilder = builder
+        .eq("age", 25)
+        .like("name", "John%")
+        .in("status", ["active", "pending"])
+        .startsWith("email", "john");
+
+      // Should have 4 conditions
+      assert.strictEqual(newBuilder._conditions.conditions.length, 4);
+
+      const conditions = newBuilder._conditions.conditions as Condition[];
+
+      // Check types are correct
+      assert.strictEqual(conditions[0].type, "comparison");
+      assert.strictEqual(conditions[1].type, "like");
+      assert.strictEqual(conditions[2].type, "in");
+      assert.strictEqual(conditions[3].type, "function");
+    });
+
+    test("should reuse parameters across different string pattern methods", () => {
+      const builder = createWhere();
+
+      const newBuilder = builder
+        .like("name", "John")
+        .startsWith("title", "John") // Same value, should reuse parameter
+        .endsWith("suffix", "unique");
+
+      // Should have 3 conditions but only 2 unique parameters
+      assert.strictEqual(newBuilder._conditions.conditions.length, 3);
+      assert.strictEqual(newBuilder._parameters.counter, 2);
+
+      const conditions = newBuilder._conditions.conditions as Condition[];
+
+      // First two conditions should use same parameter
+      assert.strictEqual(conditions[0].parameterName, "@param1");
+      assert.strictEqual(conditions[1].parameterName, "@param1");
+      assert.strictEqual(conditions[2].parameterName, "@param2");
+    });
+  });
+
+  describe("string pattern method immutability", () => {
+    test("should maintain immutability across string pattern method calls", () => {
+      const builder = createWhere();
+
+      const builder1 = builder.like("name", "John%");
+      const builder2 = builder1.notLike("email", "%spam%");
+      const builder3 = builder2.startsWith("title", "Mr.");
+      const builder4 = builder3.endsWith("phone", "1234");
+
+      // Each builder should be a different instance
+      assert.notStrictEqual(builder, builder1);
+      assert.notStrictEqual(builder1, builder2);
+      assert.notStrictEqual(builder2, builder3);
+      assert.notStrictEqual(builder3, builder4);
+
+      // Original builder should remain unchanged
+      assert.strictEqual(builder._conditions.conditions.length, 0);
+      assert.strictEqual(builder._parameters.counter, 0);
+
+      // Each builder should have cumulative conditions
+      assert.strictEqual(builder1._conditions.conditions.length, 1);
+      assert.strictEqual(builder2._conditions.conditions.length, 2);
+      assert.strictEqual(builder3._conditions.conditions.length, 3);
+      assert.strictEqual(builder4._conditions.conditions.length, 4);
+    });
+  });
+
+  describe("string pattern method type safety", () => {
+    test("should work with typed schema", () => {
+      interface User extends Record<string, ParameterValue> {
+        name: string;
+        email: string;
+        title: string;
+      }
+
+      const builder = createWhere<User>();
+
+      // These should compile without errors
+      const newBuilder = builder
+        .like("name", "John%")
+        .notLike("email", "%@spam.com")
+        .startsWith("title", "Mr.")
+        .endsWith("email", "@example.com");
+
+      assert.strictEqual(newBuilder._conditions.conditions.length, 4);
     });
   });
 });
