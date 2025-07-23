@@ -63,7 +63,7 @@
     - Write unit tests for logical operator SQL generation
     - _Requirements: 5.1, 5.2, 5.3, 5.4_
 
-- [ ] 5. Create WhereBuilder factory and core methods
+- [x] 5. Create WhereBuilder factory and core methods
 
   - [x] 5.1 Implement createWhere factory function
 
@@ -80,7 +80,7 @@
     - Write unit tests for each comparison method
     - _Requirements: 2.1, 2.2, 6.1, 6.2_
 
-  - [ ] 5.3 Implement array operation methods (in, notIn)
+  - [x] 5.3 Implement array operation methods (in, notIn)
     - Write in method that handles array values and creates IN conditions
     - Write notIn method for NOT IN operations
     - Handle empty array edge cases appropriately

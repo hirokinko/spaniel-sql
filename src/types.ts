@@ -675,14 +675,68 @@ const createWhereWithState = <T = any>(
       return createWhereWithState<T>(newConditions, newParameters);
     },
 
-    in<K extends keyof T>(_column: K, _values: T[K][]): WhereBuilder<T> {
-      // Implementation will be added in subsequent tasks
-      throw new Error("Not implemented yet");
+    in<K extends keyof T>(column: K, values: T[K][]): WhereBuilder<T> {
+      // Handle empty array edge case
+      if (values.length === 0) {
+        // For empty IN: always false (no rows match)
+        // We'll create a special condition that generates "FALSE"
+        const condition: Condition = {
+          type: "in",
+          column: String(column),
+          operator: "IN",
+          values: [],
+          parameterNames: [],
+        };
+        const newConditions = createAndGroup([...builder._conditions.conditions, condition]);
+        return createWhereWithState<T>(newConditions, builder._parameters);
+      }
+
+      // Add parameters for each value in the array
+      let currentParameters = builder._parameters;
+      const parameterNames: string[] = [];
+
+      for (const value of values) {
+        const [newParameters, paramName] = addParameter(currentParameters, value);
+        currentParameters = newParameters;
+        parameterNames.push(paramName);
+      }
+
+      const condition = createInCondition(String(column), values, parameterNames);
+      const newConditions = createAndGroup([...builder._conditions.conditions, condition]);
+
+      return createWhereWithState<T>(newConditions, currentParameters);
     },
 
-    notIn<K extends keyof T>(_column: K, _values: T[K][]): WhereBuilder<T> {
-      // Implementation will be added in subsequent tasks
-      throw new Error("Not implemented yet");
+    notIn<K extends keyof T>(column: K, values: T[K][]): WhereBuilder<T> {
+      // Handle empty array edge case
+      if (values.length === 0) {
+        // For empty NOT IN: always true (all rows match)
+        // We'll create a special condition that generates "TRUE"
+        const condition: Condition = {
+          type: "in",
+          column: String(column),
+          operator: "NOT IN",
+          values: [],
+          parameterNames: [],
+        };
+        const newConditions = createAndGroup([...builder._conditions.conditions, condition]);
+        return createWhereWithState<T>(newConditions, builder._parameters);
+      }
+
+      // Add parameters for each value in the array
+      let currentParameters = builder._parameters;
+      const parameterNames: string[] = [];
+
+      for (const value of values) {
+        const [newParameters, paramName] = addParameter(currentParameters, value);
+        currentParameters = newParameters;
+        parameterNames.push(paramName);
+      }
+
+      const condition = createNotInCondition(String(column), values, parameterNames);
+      const newConditions = createAndGroup([...builder._conditions.conditions, condition]);
+
+      return createWhereWithState<T>(newConditions, currentParameters);
     },
 
     like<K extends keyof T>(_column: K, _pattern: string): WhereBuilder<T> {

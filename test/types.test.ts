@@ -1724,9 +1724,7 @@ describe("WhereBuilder Factory", () => {
     const builder = createWhere();
 
     // Only unimplemented methods should throw "Not implemented yet" errors
-    // Basic comparison methods (eq, ne, lt, gt, le, ge) are now implemented
-    assert.throws(() => builder.in("column", ["value"]), /Not implemented yet/);
-    assert.throws(() => builder.notIn("column", ["value"]), /Not implemented yet/);
+    // Basic comparison methods (eq, ne, lt, gt, le, ge) and array methods (in, notIn) are now implemented
     assert.throws(() => builder.like("column", "pattern"), /Not implemented yet/);
     assert.throws(() => builder.notLike("column", "pattern"), /Not implemented yet/);
     assert.throws(() => builder.startsWith("column", "prefix"), /Not implemented yet/);
@@ -2105,6 +2103,323 @@ describe("WhereBuilder Basic Comparison Methods", () => {
       // Second builder should have both conditions
       assert.strictEqual(builder2._conditions.conditions.length, 2);
       assert.strictEqual(builder2._parameters.counter, 2);
+    });
+  });
+});
+describe("WhereBuilder Array Operations", () => {
+  describe("in method", () => {
+    test("should create IN condition with multiple values", () => {
+      const builder = createWhere<{ status: string }>();
+      const result = builder.in("status", ["active", "pending", "completed"]);
+
+      // Should return new builder instance
+      assert.notStrictEqual(result, builder);
+
+      // Should have one condition
+      assert.strictEqual(result._conditions.conditions.length, 1);
+      const condition = result._conditions.conditions[0] as Condition;
+
+      // Should be IN condition
+      assert.strictEqual(condition.type, "in");
+      assert.strictEqual(condition.column, "status");
+      assert.strictEqual(condition.operator, "IN");
+      assert.deepStrictEqual(condition.values, ["active", "pending", "completed"]);
+      assert.deepStrictEqual(condition.parameterNames, ["@param1", "@param2", "@param3"]);
+
+      // Should have parameters for each value
+      assert.strictEqual(result._parameters.counter, 3);
+      assert.deepStrictEqual(result._parameters.parameters, {
+        param1: "active",
+        param2: "pending",
+        param3: "completed",
+      });
+    });
+
+    test("should handle empty array by creating empty IN condition", () => {
+      const builder = createWhere<{ status: string }>();
+      const result = builder.in("status", []);
+
+      // Should have one condition
+      assert.strictEqual(result._conditions.conditions.length, 1);
+      const condition = result._conditions.conditions[0] as Condition;
+
+      // Should be empty IN condition
+      assert.strictEqual(condition.type, "in");
+      assert.strictEqual(condition.column, "status");
+      assert.strictEqual(condition.operator, "IN");
+      assert.deepStrictEqual(condition.values, []);
+      assert.deepStrictEqual(condition.parameterNames, []);
+
+      // Should not add any parameters
+      assert.strictEqual(result._parameters.counter, 0);
+      assert.deepStrictEqual(result._parameters.parameters, {});
+    });
+
+    test("should handle single value array", () => {
+      const builder = createWhere<{ id: number }>();
+      const result = builder.in("id", [42]);
+
+      const condition = result._conditions.conditions[0] as Condition;
+      assert.strictEqual(condition.type, "in");
+      assert.strictEqual(condition.column, "id");
+      assert.strictEqual(condition.operator, "IN");
+      assert.deepStrictEqual(condition.values, [42]);
+      assert.deepStrictEqual(condition.parameterNames, ["@param1"]);
+
+      assert.strictEqual(result._parameters.counter, 1);
+      assert.deepStrictEqual(result._parameters.parameters, { param1: 42 });
+    });
+
+    test("should reuse parameters for duplicate values", () => {
+      const builder = createWhere<{ priority: string }>();
+      const result = builder.in("priority", ["high", "medium", "high", "low"]);
+
+      const condition = result._conditions.conditions[0] as Condition;
+      assert.deepStrictEqual(condition.values, ["high", "medium", "high", "low"]);
+      assert.deepStrictEqual(condition.parameterNames, [
+        "@param1",
+        "@param2",
+        "@param1",
+        "@param3",
+      ]);
+
+      // Should only have 3 unique parameters
+      assert.strictEqual(result._parameters.counter, 3);
+      assert.deepStrictEqual(result._parameters.parameters, {
+        param1: "high",
+        param2: "medium",
+        param3: "low",
+      });
+    });
+
+    test("should handle different data types", () => {
+      const builder = createWhere<{ values: number | string | boolean | null }>();
+      const result = builder.in("values", [1, "string", true, null]);
+
+      const condition = result._conditions.conditions[0] as Condition;
+      assert.deepStrictEqual(condition.values, [1, "string", true, null]);
+      assert.deepStrictEqual(condition.parameterNames, [
+        "@param1",
+        "@param2",
+        "@param3",
+        "@param4",
+      ]);
+
+      assert.strictEqual(result._parameters.counter, 4);
+      assert.deepStrictEqual(result._parameters.parameters, {
+        param1: 1,
+        param2: "string",
+        param3: true,
+        param4: null,
+      });
+    });
+
+    test("should chain with other conditions", () => {
+      const builder = createWhere<{ status: string; age: number }>();
+      const result = builder.eq("age", 25).in("status", ["active", "pending"]);
+
+      // Should have two conditions
+      assert.strictEqual(result._conditions.conditions.length, 2);
+
+      const eqCondition = result._conditions.conditions[0] as Condition;
+      assert.strictEqual(eqCondition.type, "comparison");
+      assert.strictEqual(eqCondition.column, "age");
+
+      const inCondition = result._conditions.conditions[1] as Condition;
+      assert.strictEqual(inCondition.type, "in");
+      assert.strictEqual(inCondition.column, "status");
+
+      // Should have parameters from both conditions
+      assert.strictEqual(result._parameters.counter, 3);
+      assert.deepStrictEqual(result._parameters.parameters, {
+        param1: 25,
+        param2: "active",
+        param3: "pending",
+      });
+    });
+  });
+
+  describe("notIn method", () => {
+    test("should create NOT IN condition with multiple values", () => {
+      const builder = createWhere<{ status: string }>();
+      const result = builder.notIn("status", ["inactive", "deleted", "banned"]);
+
+      // Should return new builder instance
+      assert.notStrictEqual(result, builder);
+
+      // Should have one condition
+      assert.strictEqual(result._conditions.conditions.length, 1);
+      const condition = result._conditions.conditions[0] as Condition;
+
+      // Should be NOT IN condition
+      assert.strictEqual(condition.type, "in");
+      assert.strictEqual(condition.column, "status");
+      assert.strictEqual(condition.operator, "NOT IN");
+      assert.deepStrictEqual(condition.values, ["inactive", "deleted", "banned"]);
+      assert.deepStrictEqual(condition.parameterNames, ["@param1", "@param2", "@param3"]);
+
+      // Should have parameters for each value
+      assert.strictEqual(result._parameters.counter, 3);
+      assert.deepStrictEqual(result._parameters.parameters, {
+        param1: "inactive",
+        param2: "deleted",
+        param3: "banned",
+      });
+    });
+
+    test("should handle empty array by creating empty NOT IN condition", () => {
+      const builder = createWhere<{ status: string }>();
+      const result = builder.notIn("status", []);
+
+      // Should have one condition
+      assert.strictEqual(result._conditions.conditions.length, 1);
+      const condition = result._conditions.conditions[0] as Condition;
+
+      // Should be empty NOT IN condition
+      assert.strictEqual(condition.type, "in");
+      assert.strictEqual(condition.column, "status");
+      assert.strictEqual(condition.operator, "NOT IN");
+      assert.deepStrictEqual(condition.values, []);
+      assert.deepStrictEqual(condition.parameterNames, []);
+
+      // Should not add any parameters
+      assert.strictEqual(result._parameters.counter, 0);
+      assert.deepStrictEqual(result._parameters.parameters, {});
+    });
+
+    test("should handle single value array", () => {
+      const builder = createWhere<{ id: number }>();
+      const result = builder.notIn("id", [999]);
+
+      const condition = result._conditions.conditions[0] as Condition;
+      assert.strictEqual(condition.type, "in");
+      assert.strictEqual(condition.column, "id");
+      assert.strictEqual(condition.operator, "NOT IN");
+      assert.deepStrictEqual(condition.values, [999]);
+      assert.deepStrictEqual(condition.parameterNames, ["@param1"]);
+
+      assert.strictEqual(result._parameters.counter, 1);
+      assert.deepStrictEqual(result._parameters.parameters, { param1: 999 });
+    });
+
+    test("should reuse parameters for duplicate values", () => {
+      const builder = createWhere<{ category: string }>();
+      const result = builder.notIn("category", ["spam", "test", "spam", "draft"]);
+
+      const condition = result._conditions.conditions[0] as Condition;
+      assert.deepStrictEqual(condition.values, ["spam", "test", "spam", "draft"]);
+      assert.deepStrictEqual(condition.parameterNames, [
+        "@param1",
+        "@param2",
+        "@param1",
+        "@param3",
+      ]);
+
+      // Should only have 3 unique parameters
+      assert.strictEqual(result._parameters.counter, 3);
+      assert.deepStrictEqual(result._parameters.parameters, {
+        param1: "spam",
+        param2: "test",
+        param3: "draft",
+      });
+    });
+
+    test("should handle mixed data types", () => {
+      const builder = createWhere<{ excluded: number | string | boolean | null }>();
+      const result = builder.notIn("excluded", [0, "", false, null]);
+
+      const condition = result._conditions.conditions[0] as Condition;
+      assert.deepStrictEqual(condition.values, [0, "", false, null]);
+      assert.deepStrictEqual(condition.parameterNames, [
+        "@param1",
+        "@param2",
+        "@param3",
+        "@param4",
+      ]);
+
+      assert.strictEqual(result._parameters.counter, 4);
+      assert.deepStrictEqual(result._parameters.parameters, {
+        param1: 0,
+        param2: "",
+        param3: false,
+        param4: null,
+      });
+    });
+
+    test("should chain with other conditions", () => {
+      const builder = createWhere<{ status: string; priority: string }>();
+      const result = builder.notIn("status", ["deleted"]).eq("priority", "high");
+
+      // Should have two conditions
+      assert.strictEqual(result._conditions.conditions.length, 2);
+
+      const notInCondition = result._conditions.conditions[0] as Condition;
+      assert.strictEqual(notInCondition.type, "in");
+      assert.strictEqual(notInCondition.operator, "NOT IN");
+      assert.strictEqual(notInCondition.column, "status");
+
+      const eqCondition = result._conditions.conditions[1] as Condition;
+      assert.strictEqual(eqCondition.type, "comparison");
+      assert.strictEqual(eqCondition.column, "priority");
+
+      // Should have parameters from both conditions
+      assert.strictEqual(result._parameters.counter, 2);
+      assert.deepStrictEqual(result._parameters.parameters, {
+        param1: "deleted",
+        param2: "high",
+      });
+    });
+  });
+
+  describe("in and notIn combination", () => {
+    test("should work together in same query", () => {
+      const builder = createWhere<{ status: string; category: string }>();
+      const result = builder
+        .in("status", ["active", "pending"])
+        .notIn("category", ["spam", "test"]);
+
+      // Should have two conditions
+      assert.strictEqual(result._conditions.conditions.length, 2);
+
+      const inCondition = result._conditions.conditions[0] as Condition;
+      assert.strictEqual(inCondition.operator, "IN");
+      assert.deepStrictEqual(inCondition.values, ["active", "pending"]);
+
+      const notInCondition = result._conditions.conditions[1] as Condition;
+      assert.strictEqual(notInCondition.operator, "NOT IN");
+      assert.deepStrictEqual(notInCondition.values, ["spam", "test"]);
+
+      // Should have all parameters
+      assert.strictEqual(result._parameters.counter, 4);
+      assert.deepStrictEqual(result._parameters.parameters, {
+        param1: "active",
+        param2: "pending",
+        param3: "spam",
+        param4: "test",
+      });
+    });
+
+    test("should maintain immutability", () => {
+      const builder = createWhere<{ values: number }>();
+      const builder1 = builder.in("values", [1, 2, 3]);
+      const builder2 = builder1.notIn("values", [4, 5]);
+
+      // All builders should be different instances
+      assert.notStrictEqual(builder, builder1);
+      assert.notStrictEqual(builder1, builder2);
+      assert.notStrictEqual(builder, builder2);
+
+      // Original builder should be unchanged
+      assert.strictEqual(builder._conditions.conditions.length, 0);
+      assert.strictEqual(builder._parameters.counter, 0);
+
+      // First builder should have only IN condition
+      assert.strictEqual(builder1._conditions.conditions.length, 1);
+      assert.strictEqual(builder1._parameters.counter, 3);
+
+      // Second builder should have both conditions
+      assert.strictEqual(builder2._conditions.conditions.length, 2);
+      assert.strictEqual(builder2._parameters.counter, 5);
     });
   });
 });
