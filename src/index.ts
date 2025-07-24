@@ -1,53 +1,90 @@
 /**
- * spaniel-sql: Type-safe TypeScript query builder for Cloud Spanner
+ * spaniel-sql - Cloud Spanner TypeScript Query Builder
  *
- * This library provides a fluent, type-safe API for building WHERE clauses
- * for Cloud Spanner SQL queries. It supports parameterized queries, type
- * constraints, and generates SQL that is compatible with Cloud Spanner syntax.
- *
- * @example Basic Usage
- * ```typescript
- * import { createWhere } from 'spaniel-sql';
- *
- * const query = createWhere()
- *   .eq('name', 'John')
- *   .gt('age', 18)
- *   .build();
- *
- * console.log(query.sql); // "name = @param1 AND age > @param2"
- * console.log(query.parameters); // { param1: 'John', param2: 18 }
- * ```
- *
- * @example With Type Safety
- * ```typescript
- * interface User {
- *   id: number;
- *   name: string;
- *   email: string;
- *   age: number;
- * }
- *
- * const query = createWhere<User>()
- *   .eq('name', 'John')  // ✓ Type-safe column and value
- *   .gt('age', 18)       // ✓ Correct types
- *   .build();
- * ```
- *
- * @example Complex Queries
- * ```typescript
- * const query = createWhere<User>()
- *   .eq('active', true)
- *   .and(
- *     (b) => b.or(
- *       (ob) => ob.eq('role', 'admin'),
- *       (ob) => ob.eq('role', 'moderator')
- *     ),
- *     (b) => b.gt('experience', 5)
- *   )
- *   .build();
- * ```
- *
- * @packageDocumentation
+ * Main entry point that exports all public APIs
  */
 
-export * from "./types";
+// Condition types and utilities
+export type {
+  Condition,
+  ConditionGroup,
+  ConditionNode,
+  ConditionType,
+  LogicalOperator,
+} from "./conditions.js";
+export {
+  createAndGroup,
+  createComparisonCondition,
+  createEndsWithCondition,
+  createEqCondition,
+  createGeCondition,
+  createGtCondition,
+  createInCondition,
+  createInUnnestCondition,
+  createIsNotNullCondition,
+  createIsNullCondition,
+  createLeCondition,
+  createLikeCondition,
+  createLtCondition,
+  createNeCondition,
+  createNotInCondition,
+  createNotInUnnestCondition,
+  createNotLikeCondition,
+  createOrGroup,
+  createStartsWithCondition,
+  isCondition,
+  isConditionGroup,
+} from "./conditions.js";
+// Core types
+export type {
+  ComparisonOperator,
+  ParameterValue,
+  QueryResult,
+  SchemaConstraint,
+  SpannerDataType,
+  SpannerTypeHint,
+  TableSchema,
+} from "./core-types.js";
+// Error handling
+export type {
+  QueryBuilderError,
+  QueryBuilderErrorCode,
+  Result,
+} from "./errors.js";
+export {
+  createFailure,
+  createQueryBuilderError,
+  createSuccess,
+} from "./errors.js";
+// Parameter management
+export type { ParameterManager } from "./parameter-manager.js";
+export { addParameter, createParameterManager } from "./parameter-manager.js";
+// SQL generation
+export {
+  filterNullParameters,
+  generateComparisonSql,
+  generateConditionSql,
+  generateFunctionSql,
+  generateInSql,
+  generateLikeSql,
+  generateLogicalSql,
+  generateNullSql,
+} from "./sql-generation.js";
+// Validation utilities
+export {
+  assertParameterValue,
+  isParameterValue,
+  validateColumnName,
+  validateCondition,
+  validateParameterValue,
+} from "./validation.js";
+
+// WhereBuilder - main API
+export type {
+  ValidArrayValue,
+  ValidColumn,
+  ValidStringColumn,
+  ValidValue,
+  WhereBuilder,
+} from "./where-builder.js";
+export { createWhere } from "./where-builder.js";

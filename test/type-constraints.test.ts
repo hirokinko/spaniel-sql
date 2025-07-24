@@ -5,7 +5,7 @@
 
 import assert from "node:assert";
 import { describe, test } from "node:test";
-import { createWhere, type ParameterValue, type SchemaConstraint } from "../src/types";
+import { createWhere, type ParameterValue, type SchemaConstraint } from "../src/index.js";
 
 // Test schema interfaces for type checking
 interface UserSchema extends SchemaConstraint {

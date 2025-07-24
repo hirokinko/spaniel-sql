@@ -44,7 +44,7 @@ import {
   type SpannerDataType,
   type SpannerTypeHint,
   type TableSchema,
-} from "../src/types";
+} from "../src/index.js";
 
 describe("Core Types", () => {
   test("SpannerDataType should include all supported types", () => {

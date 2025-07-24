@@ -5,7 +5,7 @@
 
 import assert from "node:assert";
 import { describe, test } from "node:test";
-import { createWhere, type SchemaConstraint } from "../src/types";
+import { createWhere, type SchemaConstraint } from "../src/index.js";
 
 // Real-world schema examples for integration testing
 interface UserSchema extends SchemaConstraint {

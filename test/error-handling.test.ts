@@ -22,7 +22,7 @@ import {
   validateColumnName,
   validateCondition,
   validateParameterValue,
-} from "../src/types";
+} from "../src/index.js";
 
 describe("Error Handling Types and Functions", () => {
   describe("QueryBuilderError Creation", () => {

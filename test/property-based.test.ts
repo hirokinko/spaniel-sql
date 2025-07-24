@@ -6,7 +6,7 @@
 import assert from "node:assert";
 import { describe, test } from "node:test";
 import * as fc from "fast-check";
-import { createWhere, type SchemaConstraint } from "../src/types";
+import { createWhere, type SchemaConstraint } from "../src/index.js";
 
 // Test schema for property-based testing
 interface TestSchema extends SchemaConstraint {
