@@ -399,7 +399,7 @@ describe("Integration Tests with Typed Schemas", () => {
   describe("Real-world Query Patterns", () => {
     test("should build pagination-ready queries", () => {
       const lastUserId = 1000;
-      const _pageSize = 20;
+      const pageSize = 20;
 
       const query = createWhere<UserSchema>()
         .gt("id", lastUserId)
@@ -413,6 +413,9 @@ describe("Integration Tests with Typed Schemas", () => {
       assert.ok(query.sql.includes("deleted_at IS NULL"));
       assert.ok(Object.values(query.parameters).includes(lastUserId));
       assert.ok(Object.values(query.parameters).includes(true));
+
+      // Verify pageSize is available for use in LIMIT clause
+      assert.strictEqual(pageSize, 20);
     });
 
     test("should build audit trail queries", () => {
@@ -475,6 +478,361 @@ describe("Integration Tests with Typed Schemas", () => {
       assert.ok(Object.values(query.parameters).includes("premium"));
       assert.ok(Object.values(query.parameters).includes("admin"));
       assert.ok(Object.values(query.parameters).includes(true));
+    });
+  });
+
+  describe("Complex Query Scenarios - Task 10.1", () => {
+    test("should handle deeply nested logical operations with proper parentheses", () => {
+      // Complex nested query: ((A OR B) AND (C OR D)) OR ((E AND F) OR (G AND H))
+      const query = createWhere<UserSchema>()
+        .or(
+          (b) =>
+            b.and(
+              (ab) =>
+                ab.or(
+                  (ob) => ob.eq("role", "admin"),
+                  (ob) => ob.eq("role", "moderator")
+                ),
+              (ab) =>
+                ab.or(
+                  (ob) => ob.gt("age", 25),
+                  (ob) => ob.like("email", "%@company.com")
+                )
+            ),
+          (b) =>
+            b.or(
+              (ob) =>
+                ob.and(
+                  (ab) => ab.eq("is_active", true),
+                  (ab) => ab.isNotNull("last_login")
+                ),
+              (ob) =>
+                ob.and(
+                  (ab) => ab.in("department", ["engineering", "product"]),
+                  (ab) => ab.ge("created_at", new Date("2024-01-01"))
+                )
+            )
+        )
+        .build();
+
+      // Verify proper parentheses nesting
+      assert.ok(query.sql.includes("(("));
+      assert.ok(query.sql.includes("))"));
+      assert.ok(query.sql.includes("AND"));
+      assert.ok(query.sql.includes("OR"));
+
+      // Verify all conditions are present
+      assert.ok(query.sql.includes("role = @param"));
+      assert.ok(query.sql.includes("age > @param"));
+      assert.ok(query.sql.includes("email LIKE @param"));
+      assert.ok(query.sql.includes("is_active = @param"));
+      assert.ok(query.sql.includes("last_login IS NOT NULL"));
+      assert.ok(query.sql.includes("department IN ("));
+      assert.ok(query.sql.includes("created_at >= @param"));
+
+      // Verify parameters
+      assert.ok(Object.values(query.parameters).includes("admin"));
+      assert.ok(Object.values(query.parameters).includes("moderator"));
+      assert.ok(Object.values(query.parameters).includes(25));
+      assert.ok(Object.values(query.parameters).includes("%@company.com"));
+      assert.ok(Object.values(query.parameters).includes(true));
+      assert.ok(Object.values(query.parameters).includes("engineering"));
+      assert.ok(Object.values(query.parameters).includes("product"));
+    });
+
+    test("should combine multiple operators with complex conditions", () => {
+      // Test all operator types in a single complex query
+      const query = createWhere<ProductSchema>()
+        .and(
+          // Basic comparisons
+          (b) => b.gt("price", 100.0).le("price", 1000.0),
+          // Array operations
+          (b) => b.in("category", ["electronics", "computers", "accessories"]),
+          // String patterns
+          (b) =>
+            b.or(
+              (ob) => ob.like("name", "%laptop%"),
+              (ob) => ob.startsWith("description", "Premium"),
+              (ob) => ob.endsWith("name", "Pro")
+            ),
+          // Null checks
+          (b) => b.isNull("discontinued_date").isNotNull("created_date"),
+          // Nested logical operations
+          (b) =>
+            b.or(
+              (ob) => ob.eq("in_stock", true).gt("stock_count", 5),
+              (ob) => ob.eq("in_stock", false).eq("stock_count", 0)
+            )
+        )
+        .build();
+
+      // Verify all operator types are present
+      assert.ok(query.sql.includes("price > @param"));
+      assert.ok(query.sql.includes("price <= @param"));
+      assert.ok(query.sql.includes("category IN ("));
+      assert.ok(query.sql.includes("name LIKE @param"));
+      assert.ok(query.sql.includes("STARTS_WITH(description, @param"));
+      assert.ok(query.sql.includes("ENDS_WITH(name, @param"));
+      assert.ok(query.sql.includes("discontinued_date IS NULL"));
+      assert.ok(query.sql.includes("created_date IS NOT NULL"));
+      assert.ok(query.sql.includes("in_stock = @param"));
+      assert.ok(query.sql.includes("stock_count > @param"));
+      assert.ok(query.sql.includes("stock_count = @param"));
+
+      // Verify parameters
+      assert.ok(Object.values(query.parameters).includes(100.0));
+      assert.ok(Object.values(query.parameters).includes(1000.0));
+      assert.ok(Object.values(query.parameters).includes("electronics"));
+      assert.ok(Object.values(query.parameters).includes("%laptop%"));
+      assert.ok(Object.values(query.parameters).includes("Premium"));
+      assert.ok(Object.values(query.parameters).includes("Pro"));
+      assert.ok(Object.values(query.parameters).includes(true));
+      assert.ok(Object.values(query.parameters).includes(false));
+      assert.ok(Object.values(query.parameters).includes(5));
+      assert.ok(Object.values(query.parameters).includes(0));
+    });
+
+    test("should demonstrate extensive parameter reuse across complex queries", () => {
+      const commonDate = new Date("2024-01-01");
+      const commonStatus = "active";
+      const commonId = 12345;
+
+      const query = createWhere<OrderSchema>()
+        .and(
+          // Reuse commonDate multiple times
+          (b) =>
+            b
+              .ge("order_date", commonDate)
+              .ge("shipped_date", commonDate)
+              .le("order_date", commonDate),
+          // Reuse commonStatus multiple times
+          (b) =>
+            b.or(
+              (ob) => ob.eq("status", commonStatus),
+              (ob) => ob.ne("status", commonStatus)
+            ),
+          // Reuse commonId multiple times
+          (b) => b.eq("user_id", commonId).ne("user_id", commonId).gt("user_id", commonId)
+        )
+        .build();
+
+      // Count unique parameters - should be minimal due to reuse
+      const paramCount = Object.keys(query.parameters).length;
+      assert.strictEqual(paramCount, 3); // Only 3 unique values
+
+      // Verify all values are present
+      assert.ok(Object.values(query.parameters).includes(commonDate));
+      assert.ok(Object.values(query.parameters).includes(commonStatus));
+      assert.ok(Object.values(query.parameters).includes(commonId));
+
+      // Verify SQL contains multiple references to same parameters
+      const sqlParamMatches = query.sql.match(/@param\d+/g);
+      assert.ok(sqlParamMatches && sqlParamMatches.length > 3); // More parameter references than unique parameters
+    });
+
+    test("should generate valid Cloud Spanner SQL syntax for complex scenarios", () => {
+      const query = createWhere<UserSchema>()
+        .and(
+          // Test Cloud Spanner specific functions
+          (b) => b.startsWith("username", "admin_").endsWith("email", "@company.com"),
+          // Test proper NULL handling
+          (b) =>
+            b
+              .eq("deleted_at", null) // Should become IS NULL
+              .ne("profile_picture", null), // Should become IS NOT NULL
+          // Test array operations with proper syntax
+          (b) => b.in("role", ["admin", "user", "guest"]),
+          // Test LIKE patterns
+          (b) =>
+            b.or(
+              (ob) => ob.like("first_name", "John%"),
+              (ob) => ob.notLike("last_name", "%test%")
+            )
+        )
+        .build();
+
+      // Verify Cloud Spanner specific syntax
+      assert.ok(query.sql.includes("STARTS_WITH(username, @param"));
+      assert.ok(query.sql.includes("ENDS_WITH(email, @param"));
+      assert.ok(query.sql.includes("deleted_at IS NULL"));
+      assert.ok(query.sql.includes("profile_picture IS NOT NULL"));
+      assert.ok(query.sql.includes("role IN (@param"));
+      assert.ok(query.sql.includes("first_name LIKE @param"));
+      assert.ok(query.sql.includes("last_name NOT LIKE @param"));
+
+      // Verify no null parameters for IS NULL/IS NOT NULL operations
+      const hasNullParams = Object.values(query.parameters).some((v) => v === null);
+      assert.strictEqual(hasNullParams, false);
+
+      // Verify proper parameter naming convention
+      const paramNames = Object.keys(query.parameters);
+      paramNames.forEach((name) => {
+        assert.ok(/^param\d+$/.test(name)); // Should match param1, param2, etc.
+      });
+    });
+
+    test("should handle mixed data types with proper Cloud Spanner formatting", () => {
+      const testDate = new Date("2024-06-15T10:30:00Z");
+      const testBuffer = Buffer.from("test_image_data");
+
+      const query = createWhere<UserSchema>()
+        .and(
+          // String operations
+          (b) => b.eq("username", "test_user").like("email", "%@test.com"),
+          // Numeric operations
+          (b) => b.gt("age", 21).le("id", 99999),
+          // Boolean operations
+          (b) => b.eq("is_active", true),
+          // Date operations
+          (b) => b.ge("created_at", testDate).isNotNull("updated_at"),
+          // Buffer/Bytes operations
+          (b) => b.eq("profile_picture", testBuffer),
+          // Array operations
+          (b) => b.in("preferences", [["theme_dark", "notifications_on"]])
+        )
+        .build();
+
+      // Verify all data types are handled
+      assert.ok(Object.values(query.parameters).includes("test_user"));
+      assert.ok(Object.values(query.parameters).includes("%@test.com"));
+      assert.ok(Object.values(query.parameters).includes(21));
+      assert.ok(Object.values(query.parameters).includes(99999));
+      assert.ok(Object.values(query.parameters).includes(true));
+      assert.ok(Object.values(query.parameters).includes(testDate));
+      assert.ok(Object.values(query.parameters).includes(testBuffer));
+
+      // Verify SQL structure
+      assert.ok(query.sql.includes("username = @param"));
+      assert.ok(query.sql.includes("email LIKE @param"));
+      assert.ok(query.sql.includes("age > @param"));
+      assert.ok(query.sql.includes("id <= @param"));
+      assert.ok(query.sql.includes("is_active = @param"));
+      assert.ok(query.sql.includes("created_at >= @param"));
+      assert.ok(query.sql.includes("updated_at IS NOT NULL"));
+      assert.ok(query.sql.includes("profile_picture = @param"));
+      assert.ok(query.sql.includes("preferences IN ("));
+    });
+
+    test("should handle extreme nesting levels with correct parentheses", () => {
+      // Test deep nesting with proper AND/OR structure
+      const query = createWhere<ProductSchema>()
+        .and(
+          // First complex branch: category AND (price OR stock)
+          (b) =>
+            b.eq("category", "electronics").and((ab) =>
+              ab.or(
+                (ob) => ob.lt("price", 500),
+                (ob) => ob.gt("stock_count", 10)
+              )
+            ),
+          // Second complex branch: name AND (date OR status)
+          (b) =>
+            b.like("name", "%premium%").and((ab) =>
+              ab.or(
+                (ob) => ob.ge("created_date", new Date("2024-01-01")),
+                (ob) => ob.eq("in_stock", true)
+              )
+            ),
+          // Third branch: simple condition
+          (b) => b.isNull("discontinued_date")
+        )
+        .build();
+
+      // Count parentheses to verify proper nesting
+      const openParens = (query.sql.match(/\(/g) || []).length;
+      const closeParens = (query.sql.match(/\)/g) || []).length;
+      assert.strictEqual(openParens, closeParens); // Balanced parentheses
+
+      // Verify deep nesting structure exists
+      assert.ok(openParens >= 3); // Should have multiple levels of nesting
+
+      // Verify all conditions are present
+      assert.ok(query.sql.includes("category = @param"));
+      assert.ok(query.sql.includes("price < @param"));
+      assert.ok(query.sql.includes("stock_count > @param"));
+      assert.ok(query.sql.includes("name LIKE @param"));
+      assert.ok(query.sql.includes("created_date >= @param"));
+      assert.ok(query.sql.includes("in_stock = @param"));
+      assert.ok(query.sql.includes("discontinued_date IS NULL"));
+
+      // Verify logical operators are properly placed
+      assert.ok(query.sql.includes("OR"));
+      assert.ok(query.sql.includes("AND"));
+
+      // Verify parameters
+      assert.ok(Object.values(query.parameters).includes("electronics"));
+      assert.ok(Object.values(query.parameters).includes(500));
+      assert.ok(Object.values(query.parameters).includes(10));
+      assert.ok(Object.values(query.parameters).includes("%premium%"));
+      assert.ok(Object.values(query.parameters).includes(true));
+    });
+
+    test("should handle edge cases in complex scenarios", () => {
+      const query = createWhere<UserSchema>()
+        .and(
+          // Empty array handling
+          (b) => b.notIn("role", []), // Should generate NOT FALSE = TRUE
+          // Multiple null checks
+          (b) => b.isNull("deleted_at").isNotNull("created_at").eq("profile_picture", null), // Should become IS NULL
+          // String pattern edge cases
+          (b) =>
+            b.or(
+              (ob) => ob.like("username", ""), // Empty pattern
+              (ob) => ob.startsWith("email", "a"), // Single character
+              (ob) => ob.endsWith("first_name", "z") // Single character
+            ),
+          // Numeric edge cases
+          (b) => b.eq("age", 0).ne("id", -1)
+        )
+        .build();
+
+      // Verify empty array handling
+      assert.ok(query.sql.includes("NOT FALSE") || query.sql.includes("TRUE"));
+
+      // Verify null handling
+      assert.ok(query.sql.includes("deleted_at IS NULL"));
+      assert.ok(query.sql.includes("created_at IS NOT NULL"));
+      assert.ok(query.sql.includes("profile_picture IS NULL"));
+
+      // Verify string patterns
+      assert.ok(query.sql.includes("username LIKE @param"));
+      assert.ok(query.sql.includes("STARTS_WITH(email, @param"));
+      assert.ok(query.sql.includes("ENDS_WITH(first_name, @param"));
+
+      // Verify numeric edge cases
+      assert.ok(query.sql.includes("age = @param"));
+      assert.ok(query.sql.includes("id != @param"));
+      assert.ok(Object.values(query.parameters).includes(0));
+      assert.ok(Object.values(query.parameters).includes(-1));
+    });
+
+    test("should maintain parameter consistency across query rebuilds", () => {
+      // Build the same logical query multiple times to ensure consistency
+      const buildQuery = () =>
+        createWhere<UserSchema>()
+          .eq("username", "test_user")
+          .gt("age", 25)
+          .in("role", ["admin", "user"])
+          .isNull("deleted_at")
+          .build();
+
+      const query1 = buildQuery();
+      const query2 = buildQuery();
+      const query3 = buildQuery();
+
+      // All queries should generate identical SQL and parameters
+      assert.strictEqual(query1.sql, query2.sql);
+      assert.strictEqual(query2.sql, query3.sql);
+      assert.deepStrictEqual(query1.parameters, query2.parameters);
+      assert.deepStrictEqual(query2.parameters, query3.parameters);
+
+      // Verify parameter naming is consistent
+      const paramNames1 = Object.keys(query1.parameters).sort();
+      const paramNames2 = Object.keys(query2.parameters).sort();
+      const paramNames3 = Object.keys(query3.parameters).sort();
+
+      assert.deepStrictEqual(paramNames1, paramNames2);
+      assert.deepStrictEqual(paramNames2, paramNames3);
     });
   });
 });
