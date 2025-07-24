@@ -139,7 +139,7 @@
 
 - [ ] 9. Add TypeScript type safety and generic constraints
 
-  - [ ] 9.1 Implement generic type constraints for schema validation
+  - [x] 9.1 Implement generic type constraints for schema validation
 
     - Add generic type parameter T to WhereBuilder for schema typing
     - Implement keyof T constraints for column name validation

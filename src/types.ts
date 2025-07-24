@@ -965,35 +965,78 @@ export const generateLogicalSql = (group: ConditionGroup): string => {
 };
 
 /**
- * WhereBuilder type - immutable object with fluent interface methods
+ * Schema constraint type - ensures T has string keys and ParameterValue values
+ * This allows for both typed schemas and flexible Record<string, ParameterValue> usage
  */
-export type WhereBuilder<
-  T extends Record<string, ParameterValue> = Record<string, ParameterValue>,
-> = {
+export type SchemaConstraint = Record<string, ParameterValue>;
+
+/**
+ * Type constraint for column names - ensures K is a valid key of T
+ */
+export type ValidColumn<T extends SchemaConstraint, K> = K extends keyof T ? K : never;
+
+/**
+ * Type constraint for values - ensures value type matches the schema column type
+ * If T[K] is ParameterValue (untyped), allows any ParameterValue
+ * If T[K] is a specific type, enforces that type
+ */
+export type ValidValue<T extends SchemaConstraint, K extends keyof T> = T[K] extends ParameterValue
+  ? T[K]
+  : never;
+
+/**
+ * Type constraint for array values - ensures array element type matches schema
+ */
+export type ValidArrayValue<
+  T extends SchemaConstraint,
+  K extends keyof T,
+> = T[K] extends ParameterValue ? T[K][] : never;
+
+/**
+ * Type constraint for string operations - ensures column type is compatible with string operations
+ * String operations (like, startsWith, endsWith) should only work on string columns
+ */
+export type ValidStringColumn<T extends SchemaConstraint, K extends keyof T> = T[K] extends
+  | string
+  | null
+  | undefined
+  ? K
+  : T[K] extends ParameterValue
+    ? K // Allow for untyped schemas
+    : never;
+
+/**
+ * WhereBuilder type - immutable object with fluent interface methods
+ * Generic parameter T represents the table schema for type safety
+ */
+export type WhereBuilder<T extends SchemaConstraint = SchemaConstraint> = {
   readonly _conditions: ConditionGroup;
   readonly _parameters: ParameterManager;
 
-  // Basic comparisons
-  eq<K extends keyof T>(column: K, value: T[K]): WhereBuilder<T>;
-  ne<K extends keyof T>(column: K, value: T[K]): WhereBuilder<T>;
-  lt<K extends keyof T>(column: K, value: T[K]): WhereBuilder<T>;
-  gt<K extends keyof T>(column: K, value: T[K]): WhereBuilder<T>;
-  le<K extends keyof T>(column: K, value: T[K]): WhereBuilder<T>;
-  ge<K extends keyof T>(column: K, value: T[K]): WhereBuilder<T>;
+  // Basic comparisons with type constraints
+  eq<K extends keyof T>(column: ValidColumn<T, K>, value: ValidValue<T, K>): WhereBuilder<T>;
+  ne<K extends keyof T>(column: ValidColumn<T, K>, value: ValidValue<T, K>): WhereBuilder<T>;
+  lt<K extends keyof T>(column: ValidColumn<T, K>, value: ValidValue<T, K>): WhereBuilder<T>;
+  gt<K extends keyof T>(column: ValidColumn<T, K>, value: ValidValue<T, K>): WhereBuilder<T>;
+  le<K extends keyof T>(column: ValidColumn<T, K>, value: ValidValue<T, K>): WhereBuilder<T>;
+  ge<K extends keyof T>(column: ValidColumn<T, K>, value: ValidValue<T, K>): WhereBuilder<T>;
 
-  // Array operations
-  in<K extends keyof T>(column: K, values: T[K][]): WhereBuilder<T>;
-  notIn<K extends keyof T>(column: K, values: T[K][]): WhereBuilder<T>;
+  // Array operations with type constraints
+  in<K extends keyof T>(column: ValidColumn<T, K>, values: ValidArrayValue<T, K>): WhereBuilder<T>;
+  notIn<K extends keyof T>(
+    column: ValidColumn<T, K>,
+    values: ValidArrayValue<T, K>
+  ): WhereBuilder<T>;
 
-  // String operations
-  like<K extends keyof T>(column: K, pattern: string): WhereBuilder<T>;
-  notLike<K extends keyof T>(column: K, pattern: string): WhereBuilder<T>;
-  startsWith<K extends keyof T>(column: K, prefix: string): WhereBuilder<T>;
-  endsWith<K extends keyof T>(column: K, suffix: string): WhereBuilder<T>;
+  // String operations with string column constraints
+  like<K extends keyof T>(column: ValidStringColumn<T, K>, pattern: string): WhereBuilder<T>;
+  notLike<K extends keyof T>(column: ValidStringColumn<T, K>, pattern: string): WhereBuilder<T>;
+  startsWith<K extends keyof T>(column: ValidStringColumn<T, K>, prefix: string): WhereBuilder<T>;
+  endsWith<K extends keyof T>(column: ValidStringColumn<T, K>, suffix: string): WhereBuilder<T>;
 
-  // Null checks
-  isNull<K extends keyof T>(column: K): WhereBuilder<T>;
-  isNotNull<K extends keyof T>(column: K): WhereBuilder<T>;
+  // Null checks - work on any column
+  isNull<K extends keyof T>(column: ValidColumn<T, K>): WhereBuilder<T>;
+  isNotNull<K extends keyof T>(column: ValidColumn<T, K>): WhereBuilder<T>;
 
   // Logical operators
   and(...conditions: ((builder: WhereBuilder<T>) => WhereBuilder<T>)[]): WhereBuilder<T>;
@@ -1009,9 +1052,7 @@ export type WhereBuilder<
  * @param parameters - The parameter manager to use
  * @returns A new WhereBuilder instance with the specified state
  */
-const createWhereWithState = <
-  T extends Record<string, ParameterValue> = Record<string, ParameterValue>,
->(
+const createWhereWithState = <T extends SchemaConstraint = SchemaConstraint>(
   conditions: ConditionGroup,
   parameters: ParameterManager
 ): WhereBuilder<T> => {
@@ -1019,7 +1060,7 @@ const createWhereWithState = <
     _conditions: conditions,
     _parameters: parameters,
 
-    eq<K extends keyof T>(column: K, value: T[K]): WhereBuilder<T> {
+    eq<K extends keyof T>(column: ValidColumn<T, K>, value: ValidValue<T, K>): WhereBuilder<T> {
       assertParameterValue(value);
       const [newParameters, parameterName] = addParameter(builder._parameters, value);
       const condition = createEqCondition(String(column), value, parameterName);
@@ -1028,7 +1069,7 @@ const createWhereWithState = <
       return createWhereWithState<T>(newConditions, newParameters);
     },
 
-    ne<K extends keyof T>(column: K, value: T[K]): WhereBuilder<T> {
+    ne<K extends keyof T>(column: ValidColumn<T, K>, value: ValidValue<T, K>): WhereBuilder<T> {
       assertParameterValue(value);
       const [newParameters, parameterName] = addParameter(builder._parameters, value);
       const condition = createNeCondition(String(column), value, parameterName);
@@ -1037,7 +1078,7 @@ const createWhereWithState = <
       return createWhereWithState<T>(newConditions, newParameters);
     },
 
-    lt<K extends keyof T>(column: K, value: T[K]): WhereBuilder<T> {
+    lt<K extends keyof T>(column: ValidColumn<T, K>, value: ValidValue<T, K>): WhereBuilder<T> {
       assertParameterValue(value);
       const [newParameters, parameterName] = addParameter(builder._parameters, value);
       const condition = createLtCondition(String(column), value, parameterName);
@@ -1046,7 +1087,7 @@ const createWhereWithState = <
       return createWhereWithState<T>(newConditions, newParameters);
     },
 
-    gt<K extends keyof T>(column: K, value: T[K]): WhereBuilder<T> {
+    gt<K extends keyof T>(column: ValidColumn<T, K>, value: ValidValue<T, K>): WhereBuilder<T> {
       assertParameterValue(value);
       const [newParameters, parameterName] = addParameter(builder._parameters, value);
       const condition = createGtCondition(String(column), value, parameterName);
@@ -1055,7 +1096,7 @@ const createWhereWithState = <
       return createWhereWithState<T>(newConditions, newParameters);
     },
 
-    le<K extends keyof T>(column: K, value: T[K]): WhereBuilder<T> {
+    le<K extends keyof T>(column: ValidColumn<T, K>, value: ValidValue<T, K>): WhereBuilder<T> {
       assertParameterValue(value);
       const [newParameters, parameterName] = addParameter(builder._parameters, value);
       const condition = createLeCondition(String(column), value, parameterName);
@@ -1064,7 +1105,7 @@ const createWhereWithState = <
       return createWhereWithState<T>(newConditions, newParameters);
     },
 
-    ge<K extends keyof T>(column: K, value: T[K]): WhereBuilder<T> {
+    ge<K extends keyof T>(column: ValidColumn<T, K>, value: ValidValue<T, K>): WhereBuilder<T> {
       assertParameterValue(value);
       const [newParameters, parameterName] = addParameter(builder._parameters, value);
       const condition = createGeCondition(String(column), value, parameterName);
@@ -1073,7 +1114,10 @@ const createWhereWithState = <
       return createWhereWithState<T>(newConditions, newParameters);
     },
 
-    in<K extends keyof T>(column: K, values: T[K][]): WhereBuilder<T> {
+    in<K extends keyof T>(
+      column: ValidColumn<T, K>,
+      values: ValidArrayValue<T, K>
+    ): WhereBuilder<T> {
       // Handle empty array edge case
       if (values.length === 0) {
         // For empty IN: always false (no rows match)
@@ -1108,7 +1152,10 @@ const createWhereWithState = <
       return createWhereWithState<T>(newConditions, currentParameters);
     },
 
-    notIn<K extends keyof T>(column: K, values: T[K][]): WhereBuilder<T> {
+    notIn<K extends keyof T>(
+      column: ValidColumn<T, K>,
+      values: ValidArrayValue<T, K>
+    ): WhereBuilder<T> {
       // Handle empty array edge case
       if (values.length === 0) {
         // For empty NOT IN: always true (all rows match)
@@ -1143,7 +1190,7 @@ const createWhereWithState = <
       return createWhereWithState<T>(newConditions, currentParameters);
     },
 
-    like<K extends keyof T>(column: K, pattern: string): WhereBuilder<T> {
+    like<K extends keyof T>(column: ValidStringColumn<T, K>, pattern: string): WhereBuilder<T> {
       const [newParameters, parameterName] = addParameter(builder._parameters, pattern);
       const condition = createLikeCondition(String(column), pattern, parameterName);
       const newConditions = createAndGroup([...builder._conditions.conditions, condition]);
@@ -1151,7 +1198,7 @@ const createWhereWithState = <
       return createWhereWithState<T>(newConditions, newParameters);
     },
 
-    notLike<K extends keyof T>(column: K, pattern: string): WhereBuilder<T> {
+    notLike<K extends keyof T>(column: ValidStringColumn<T, K>, pattern: string): WhereBuilder<T> {
       const [newParameters, parameterName] = addParameter(builder._parameters, pattern);
       const condition = createNotLikeCondition(String(column), pattern, parameterName);
       const newConditions = createAndGroup([...builder._conditions.conditions, condition]);
@@ -1159,7 +1206,10 @@ const createWhereWithState = <
       return createWhereWithState<T>(newConditions, newParameters);
     },
 
-    startsWith<K extends keyof T>(column: K, prefix: string): WhereBuilder<T> {
+    startsWith<K extends keyof T>(
+      column: ValidStringColumn<T, K>,
+      prefix: string
+    ): WhereBuilder<T> {
       const [newParameters, parameterName] = addParameter(builder._parameters, prefix);
       const condition = createStartsWithCondition(String(column), prefix, parameterName);
       const newConditions = createAndGroup([...builder._conditions.conditions, condition]);
@@ -1167,7 +1217,7 @@ const createWhereWithState = <
       return createWhereWithState<T>(newConditions, newParameters);
     },
 
-    endsWith<K extends keyof T>(column: K, suffix: string): WhereBuilder<T> {
+    endsWith<K extends keyof T>(column: ValidStringColumn<T, K>, suffix: string): WhereBuilder<T> {
       const [newParameters, parameterName] = addParameter(builder._parameters, suffix);
       const condition = createEndsWithCondition(String(column), suffix, parameterName);
       const newConditions = createAndGroup([...builder._conditions.conditions, condition]);
@@ -1175,14 +1225,14 @@ const createWhereWithState = <
       return createWhereWithState<T>(newConditions, newParameters);
     },
 
-    isNull<K extends keyof T>(column: K): WhereBuilder<T> {
+    isNull<K extends keyof T>(column: ValidColumn<T, K>): WhereBuilder<T> {
       const condition = createIsNullCondition(String(column));
       const newConditions = createAndGroup([...builder._conditions.conditions, condition]);
 
       return createWhereWithState<T>(newConditions, builder._parameters);
     },
 
-    isNotNull<K extends keyof T>(column: K): WhereBuilder<T> {
+    isNotNull<K extends keyof T>(column: ValidColumn<T, K>): WhereBuilder<T> {
       const condition = createIsNotNullCondition(String(column));
       const newConditions = createAndGroup([...builder._conditions.conditions, condition]);
 
@@ -1285,9 +1335,7 @@ const createWhereWithState = <
  * Creates a new WhereBuilder instance with empty condition tree and parameter manager
  * @returns A new WhereBuilder instance
  */
-export const createWhere = <
-  T extends Record<string, ParameterValue> = Record<string, ParameterValue>,
->(): WhereBuilder<T> => {
+export const createWhere = <T extends SchemaConstraint = SchemaConstraint>(): WhereBuilder<T> => {
   const emptyConditions = createAndGroup([]);
   const emptyParameters = createParameterManager();
 
