@@ -1969,8 +1969,8 @@ describe("WhereBuilder Factory", () => {
     // The or method is now implemented
     assert.doesNotThrow(() => builder.or(() => builder));
 
-    // These methods are still unimplemented
-    assert.throws(() => builder.build(), /Not implemented yet/);
+    // The build method is now implemented
+    assert.doesNotThrow(() => builder.build());
 
     // The and method is now implemented
     assert.doesNotThrow(() => builder.and(() => builder));
@@ -3587,5 +3587,278 @@ describe("WhereBuilder mixed AND/OR operations", () => {
 
     assert.strictEqual(firstCondition.column, "age");
     assert.strictEqual(secondCondition.column, "status");
+  });
+});
+describe("WhereBuilder build method", () => {
+  test("should return empty SQL for empty condition tree", () => {
+    const builder = createWhere();
+    const result = builder.build();
+
+    assert.strictEqual(result.sql, "");
+    assert.deepStrictEqual(result.parameters, {});
+  });
+
+  test("should generate SQL for single equality condition", () => {
+    const builder = createWhere();
+    const result = builder.eq("age", 25).build();
+
+    assert.strictEqual(result.sql, "age = @param1");
+    assert.deepStrictEqual(result.parameters, { param1: 25 });
+  });
+
+  test("should generate SQL for multiple AND conditions", () => {
+    const builder = createWhere();
+    const result = builder.eq("age", 25).eq("status", "active").gt("score", 80).build();
+
+    assert.strictEqual(result.sql, "(age = @param1 AND status = @param2 AND score > @param3)");
+    assert.deepStrictEqual(result.parameters, {
+      param1: 25,
+      param2: "active",
+      param3: 80,
+    });
+  });
+
+  test("should generate SQL for OR conditions", () => {
+    const builder = createWhere();
+    const result = builder
+      .or(
+        (b) => b.eq("priority", "high"),
+        (b) => b.eq("priority", "urgent"),
+        (b) => b.isNull("deadline")
+      )
+      .build();
+
+    assert.strictEqual(
+      result.sql,
+      "(priority = @param1 OR priority = @param2 OR deadline IS NULL)"
+    );
+    assert.deepStrictEqual(result.parameters, {
+      param1: "high",
+      param2: "urgent",
+    });
+  });
+
+  test("should generate SQL for mixed AND/OR conditions", () => {
+    const builder = createWhere();
+    const result = builder
+      .eq("department", "engineering")
+      .and(
+        (b) =>
+          b.or(
+            (bb) => bb.eq("level", "senior"),
+            (bb) => bb.eq("level", "lead")
+          ),
+        (b) => b.gt("experience", 5)
+      )
+      .build();
+
+    assert.strictEqual(
+      result.sql,
+      "(department = @param1 AND ((level = @param2 OR level = @param3) AND experience > @param4))"
+    );
+    assert.deepStrictEqual(result.parameters, {
+      param1: "engineering",
+      param2: "senior",
+      param3: "lead",
+      param4: 5,
+    });
+  });
+
+  test("should generate SQL for IN conditions", () => {
+    const builder = createWhere();
+    const result = builder.in("status", ["active", "pending", "completed"]).build();
+
+    assert.strictEqual(result.sql, "status IN (@param1, @param2, @param3)");
+    assert.deepStrictEqual(result.parameters, {
+      param1: "active",
+      param2: "pending",
+      param3: "completed",
+    });
+  });
+
+  test("should generate SQL for empty IN conditions", () => {
+    const builder = createWhere();
+    const result = builder.in("status", []).build();
+
+    assert.strictEqual(result.sql, "FALSE");
+    assert.deepStrictEqual(result.parameters, {});
+  });
+
+  test("should generate SQL for empty NOT IN conditions", () => {
+    const builder = createWhere();
+    const result = builder.notIn("status", []).build();
+
+    assert.strictEqual(result.sql, "TRUE");
+    assert.deepStrictEqual(result.parameters, {});
+  });
+
+  test("should generate SQL for LIKE conditions", () => {
+    const builder = createWhere();
+    const result = builder.like("name", "John%").notLike("email", "%@spam.com").build();
+
+    assert.strictEqual(result.sql, "(name LIKE @param1 AND email NOT LIKE @param2)");
+    assert.deepStrictEqual(result.parameters, {
+      param1: "John%",
+      param2: "%@spam.com",
+    });
+  });
+
+  test("should generate SQL for string function conditions", () => {
+    const builder = createWhere();
+    const result = builder.startsWith("name", "John").endsWith("email", "@example.com").build();
+
+    assert.strictEqual(result.sql, "(STARTS_WITH(name, @param1) AND ENDS_WITH(email, @param2))");
+    assert.deepStrictEqual(result.parameters, {
+      param1: "John",
+      param2: "@example.com",
+    });
+  });
+
+  test("should generate SQL for null check conditions", () => {
+    const builder = createWhere();
+    const result = builder.isNull("deleted_at").isNotNull("created_at").build();
+
+    assert.strictEqual(result.sql, "(deleted_at IS NULL AND created_at IS NOT NULL)");
+    assert.deepStrictEqual(result.parameters, {});
+  });
+
+  test("should generate SQL for null value comparisons", () => {
+    const builder = createWhere();
+    const result = builder.eq("deleted_at", null).ne("updated_at", null).build();
+
+    assert.strictEqual(result.sql, "(deleted_at IS NULL AND updated_at IS NOT NULL)");
+    assert.deepStrictEqual(result.parameters, {});
+  });
+
+  test("should reuse parameters for same values", () => {
+    const builder = createWhere();
+    const result = builder
+      .eq("status", "active")
+      .ne("old_status", "active") // Same value, should reuse parameter
+      .gt("age", 25)
+      .lt("max_age", 25) // Same value, should reuse parameter
+      .build();
+
+    assert.strictEqual(
+      result.sql,
+      "(status = @param1 AND old_status != @param1 AND age > @param2 AND max_age < @param2)"
+    );
+    assert.deepStrictEqual(result.parameters, {
+      param1: "active",
+      param2: 25,
+    });
+  });
+
+  test("should handle complex nested conditions", () => {
+    const builder = createWhere();
+    const result = builder
+      .and(
+        (b) => b.eq("department", "engineering"),
+        (b) =>
+          b.or(
+            (bb) =>
+              bb.and(
+                (bbb) => bbb.eq("level", "senior"),
+                (bbb) => bbb.gt("experience", 5)
+              ),
+            (bb) => bb.eq("level", "lead")
+          )
+      )
+      .isNotNull("active")
+      .build();
+
+    assert.strictEqual(
+      result.sql,
+      "((department = @param1 AND ((level = @param2 AND experience > @param3) OR level = @param4)) AND active IS NOT NULL)"
+    );
+    assert.deepStrictEqual(result.parameters, {
+      param1: "engineering",
+      param2: "senior",
+      param3: 5,
+      param4: "lead",
+    });
+  });
+
+  test("should handle all comparison operators", () => {
+    const builder = createWhere();
+    const result = builder
+      .eq("a", 1)
+      .ne("b", 2)
+      .lt("c", 3)
+      .le("d", 4)
+      .gt("e", 5)
+      .ge("f", 6)
+      .build();
+
+    assert.strictEqual(
+      result.sql,
+      "(a = @param1 AND b != @param2 AND c < @param3 AND d <= @param4 AND e > @param5 AND f >= @param6)"
+    );
+    assert.deepStrictEqual(result.parameters, {
+      param1: 1,
+      param2: 2,
+      param3: 3,
+      param4: 4,
+      param5: 5,
+      param6: 6,
+    });
+  });
+
+  test("should handle array values in IN conditions", () => {
+    const builder = createWhere();
+    const result = builder
+      .in("tags", ["javascript", "typescript", "node"])
+      .notIn("blocked_tags", ["spam", "inappropriate"])
+      .build();
+
+    assert.strictEqual(
+      result.sql,
+      "(tags IN (@param1, @param2, @param3) AND blocked_tags NOT IN (@param4, @param5))"
+    );
+    assert.deepStrictEqual(result.parameters, {
+      param1: "javascript",
+      param2: "typescript",
+      param3: "node",
+      param4: "spam",
+      param5: "inappropriate",
+    });
+  });
+
+  test("should handle mixed data types", () => {
+    const builder = createWhere();
+    const result = builder
+      .eq("name", "John")
+      .eq("age", 30)
+      .eq("active", true)
+      .eq("score", 95.5)
+      .isNull("deleted_at")
+      .build();
+
+    assert.strictEqual(
+      result.sql,
+      "(name = @param1 AND age = @param2 AND active = @param3 AND score = @param4 AND deleted_at IS NULL)"
+    );
+    assert.deepStrictEqual(result.parameters, {
+      param1: "John",
+      param2: 30,
+      param3: true,
+      param4: 95.5,
+    });
+  });
+
+  test("should maintain immutability during build", () => {
+    const builder1 = createWhere().eq("age", 25);
+    const builder2 = builder1.eq("status", "active");
+
+    const result1 = builder1.build();
+    const result2 = builder2.build();
+
+    // First builder should only have age condition
+    assert.strictEqual(result1.sql, "age = @param1");
+    assert.deepStrictEqual(result1.parameters, { param1: 25 });
+
+    // Second builder should have both conditions
+    assert.strictEqual(result2.sql, "(age = @param1 AND status = @param2)");
+    assert.deepStrictEqual(result2.parameters, { param1: 25, param2: "active" });
   });
 });

@@ -122,7 +122,7 @@
 
 - [ ] 8. Implement build method and query result generation
 
-  - [ ] 8.1 Create build method that generates final QueryResult
+  - [x] 8.1 Create build method that generates final QueryResult
 
     - Write build method that converts condition tree to SQL string
     - Integrate parameter manager to generate parameter object

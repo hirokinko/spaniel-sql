@@ -605,6 +605,63 @@ export const generateConditionSql = (node: ConditionNode): string => {
 };
 
 /**
+ * Filters out null parameters that are converted to IS NULL/IS NOT NULL from the parameters object
+ * @param conditionTree - The condition tree to analyze
+ * @param parameters - The original parameters object
+ * @returns Filtered parameters object without null parameters that become IS NULL/IS NOT NULL
+ */
+export const filterNullParameters = (
+  conditionTree: ConditionGroup,
+  parameters: Record<string, ParameterValue>
+): Record<string, ParameterValue> => {
+  const usedParameterNames = new Set<string>();
+
+  const collectUsedParameters = (node: ConditionNode): void => {
+    if (isCondition(node)) {
+      // For comparison conditions with null values that become IS NULL/IS NOT NULL,
+      // we don't include their parameters
+      if (
+        node.type === "comparison" &&
+        node.value === null &&
+        (node.operator === "=" || node.operator === "!=")
+      ) {
+        // Don't add this parameter to the used set
+        return;
+      }
+
+      // For all other conditions, collect their parameter names
+      if (node.parameterName) {
+        const paramName = node.parameterName.replace("@", "");
+        usedParameterNames.add(paramName);
+      }
+      if (node.parameterNames) {
+        for (const paramName of node.parameterNames) {
+          const cleanParamName = paramName.replace("@", "");
+          usedParameterNames.add(cleanParamName);
+        }
+      }
+    } else if (isConditionGroup(node)) {
+      // Recursively process condition groups
+      for (const condition of node.conditions) {
+        collectUsedParameters(condition);
+      }
+    }
+  };
+
+  collectUsedParameters(conditionTree);
+
+  // Filter parameters to only include those that are actually used
+  const filteredParameters: Record<string, ParameterValue> = {};
+  for (const [paramName, value] of Object.entries(parameters)) {
+    if (usedParameterNames.has(paramName)) {
+      filteredParameters[paramName] = value;
+    }
+  }
+
+  return filteredParameters;
+};
+
+/**
  * Generates SQL string for logical operator condition groups (AND/OR)
  * Handles proper parentheses for operator precedence and nested groups
  * @param group - The condition group to convert to SQL
@@ -933,8 +990,27 @@ const createWhereWithState = <
     },
 
     build(): QueryResult {
-      // Implementation will be added in subsequent tasks
-      throw new Error("Not implemented yet");
+      // Handle empty condition tree
+      if (builder._conditions.conditions.length === 0) {
+        return {
+          sql: "",
+          parameters: builder._parameters.parameters,
+        };
+      }
+
+      // Generate SQL from condition tree
+      const sql = generateConditionSql(builder._conditions);
+
+      // Filter out null parameters that are converted to IS NULL/IS NOT NULL
+      const filteredParameters = filterNullParameters(
+        builder._conditions,
+        builder._parameters.parameters
+      );
+
+      return {
+        sql,
+        parameters: filteredParameters,
+      };
     },
   };
 
