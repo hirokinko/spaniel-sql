@@ -834,10 +834,10 @@ describe("SQL Generation for Basic Comparison Conditions", () => {
       parameterNames: ["@param1", "@param2"],
     };
 
-    assert.throws(() => generateComparisonSql(nonComparisonCondition), {
-      name: "Error",
-      message: "Expected comparison condition, got in",
-    });
+    assert.throws(
+      () => generateComparisonSql(nonComparisonCondition),
+      /Expected comparison condition, got in/
+    );
   });
 
   test("generateComparisonSql should throw error when parameter name is missing for non-null values", () => {
@@ -846,95 +846,327 @@ describe("SQL Generation for Basic Comparison Conditions", () => {
       column: "age",
       operator: "=",
       value: 25,
-      // parameterName is undefined
+      // parameterName is missing
     };
 
-    assert.throws(() => generateComparisonSql(condition), {
-      name: "Error",
-      message: "Parameter name is required for non-null comparison conditions",
-    });
+    assert.throws(
+      () => generateComparisonSql(condition),
+      /Parameter name is required for non-null comparison conditions/
+    );
+  });
+});
+
+describe("WhereBuilder Null Check Methods", () => {
+  test("isNull should create IS NULL condition", () => {
+    const builder = createWhere<{ deleted_at: Date | null }>();
+    const result = builder.isNull("deleted_at");
+
+    // Should return a new builder instance
+    assert.notStrictEqual(result, builder);
+
+    // Should add IS NULL condition to the condition tree
+    assert.strictEqual(result._conditions.type, "and");
+    assert.strictEqual(result._conditions.conditions.length, 1);
+
+    const condition = result._conditions.conditions[0] as Condition;
+    assert.ok(isCondition(condition));
+    assert.strictEqual(condition.type, "null");
+    assert.strictEqual(condition.column, "deleted_at");
+    assert.strictEqual(condition.operator, "IS NULL");
+    assert.strictEqual(condition.value, undefined);
+    assert.strictEqual(condition.parameterName, undefined);
+
+    // Parameters should remain unchanged (no parameters needed for null checks)
+    assert.strictEqual(result._parameters.counter, 0);
+    assert.deepStrictEqual(result._parameters.parameters, {});
   });
 
-  test("generateComparisonSql should handle edge cases with empty strings", () => {
-    const condition = createEqCondition("description", "", "@param1");
-    const sql = generateComparisonSql(condition);
+  test("isNotNull should create IS NOT NULL condition", () => {
+    const builder = createWhere<{ created_at: Date | null }>();
+    const result = builder.isNotNull("created_at");
 
-    assert.strictEqual(sql, "description = @param1");
+    // Should return a new builder instance
+    assert.notStrictEqual(result, builder);
+
+    // Should add IS NOT NULL condition to the condition tree
+    assert.strictEqual(result._conditions.type, "and");
+    assert.strictEqual(result._conditions.conditions.length, 1);
+
+    const condition = result._conditions.conditions[0] as Condition;
+    assert.ok(isCondition(condition));
+    assert.strictEqual(condition.type, "null");
+    assert.strictEqual(condition.column, "created_at");
+    assert.strictEqual(condition.operator, "IS NOT NULL");
+    assert.strictEqual(condition.value, undefined);
+    assert.strictEqual(condition.parameterName, undefined);
+
+    // Parameters should remain unchanged (no parameters needed for null checks)
+    assert.strictEqual(result._parameters.counter, 0);
+    assert.deepStrictEqual(result._parameters.parameters, {});
   });
 
-  test("generateComparisonSql should handle zero values correctly", () => {
-    const condition = createEqCondition("count", 0, "@param1");
-    const sql = generateComparisonSql(condition);
+  test("isNull should work with string column names", () => {
+    const builder = createWhere();
+    const result = builder.isNull("any_column");
 
-    assert.strictEqual(sql, "count = @param1");
+    const condition = result._conditions.conditions[0] as Condition;
+    assert.strictEqual(condition.column, "any_column");
+    assert.strictEqual(condition.operator, "IS NULL");
   });
 
-  test("generateComparisonSql should handle undefined values as non-null", () => {
-    const condition = createEqCondition("optional_field", undefined, "@param1");
-    const sql = generateComparisonSql(condition);
+  test("isNotNull should work with string column names", () => {
+    const builder = createWhere();
+    const result = builder.isNotNull("any_column");
 
-    // undefined should be treated as a regular value, not as null
-    assert.strictEqual(sql, "optional_field = @param1");
+    const condition = result._conditions.conditions[0] as Condition;
+    assert.strictEqual(condition.column, "any_column");
+    assert.strictEqual(condition.operator, "IS NOT NULL");
   });
 
-  test("generateComparisonSql should work with all comparison condition creation helpers", () => {
+  test("isNull should chain with other conditions", () => {
+    const builder = createWhere<{ name: string; deleted_at: Date | null }>();
+    const result = builder.eq("name", "John").isNull("deleted_at");
+
+    // Should have two conditions
+    assert.strictEqual(result._conditions.conditions.length, 2);
+
+    // First condition should be equality
+    const firstCondition = result._conditions.conditions[0] as Condition;
+    assert.strictEqual(firstCondition.type, "comparison");
+    assert.strictEqual(firstCondition.column, "name");
+    assert.strictEqual(firstCondition.operator, "=");
+
+    // Second condition should be null check
+    const secondCondition = result._conditions.conditions[1] as Condition;
+    assert.strictEqual(secondCondition.type, "null");
+    assert.strictEqual(secondCondition.column, "deleted_at");
+    assert.strictEqual(secondCondition.operator, "IS NULL");
+
+    // Should have one parameter for the equality condition
+    assert.strictEqual(result._parameters.counter, 1);
+    assert.strictEqual(result._parameters.parameters.param1, "John");
+  });
+
+  test("isNotNull should chain with other conditions", () => {
+    const builder = createWhere<{ status: string; created_at: Date | null }>();
+    const result = builder.eq("status", "active").isNotNull("created_at");
+
+    // Should have two conditions
+    assert.strictEqual(result._conditions.conditions.length, 2);
+
+    // First condition should be equality
+    const firstCondition = result._conditions.conditions[0] as Condition;
+    assert.strictEqual(firstCondition.type, "comparison");
+    assert.strictEqual(firstCondition.column, "status");
+    assert.strictEqual(firstCondition.operator, "=");
+
+    // Second condition should be not null check
+    const secondCondition = result._conditions.conditions[1] as Condition;
+    assert.strictEqual(secondCondition.type, "null");
+    assert.strictEqual(secondCondition.column, "created_at");
+    assert.strictEqual(secondCondition.operator, "IS NOT NULL");
+
+    // Should have one parameter for the equality condition
+    assert.strictEqual(result._parameters.counter, 1);
+    assert.strictEqual(result._parameters.parameters.param1, "active");
+  });
+
+  test("multiple null checks should work together", () => {
+    const builder = createWhere<{ deleted_at: Date | null; archived_at: Date | null }>();
+    const result = builder.isNull("deleted_at").isNotNull("archived_at");
+
+    // Should have two conditions
+    assert.strictEqual(result._conditions.conditions.length, 2);
+
+    // First condition should be IS NULL
+    const firstCondition = result._conditions.conditions[0] as Condition;
+    assert.strictEqual(firstCondition.type, "null");
+    assert.strictEqual(firstCondition.column, "deleted_at");
+    assert.strictEqual(firstCondition.operator, "IS NULL");
+
+    // Second condition should be IS NOT NULL
+    const secondCondition = result._conditions.conditions[1] as Condition;
+    assert.strictEqual(secondCondition.type, "null");
+    assert.strictEqual(secondCondition.column, "archived_at");
+    assert.strictEqual(secondCondition.operator, "IS NOT NULL");
+
+    // Should have no parameters (null checks don't need parameters)
+    assert.strictEqual(result._parameters.counter, 0);
+    assert.deepStrictEqual(result._parameters.parameters, {});
+  });
+
+  test("null check methods should maintain immutability", () => {
+    const builder = createWhere<{ deleted_at: Date | null }>();
+    const result1 = builder.isNull("deleted_at");
+    const result2 = result1.isNotNull("deleted_at");
+
+    // All instances should be different
+    assert.notStrictEqual(builder, result1);
+    assert.notStrictEqual(result1, result2);
+    assert.notStrictEqual(builder, result2);
+
+    // Original builder should remain unchanged
+    assert.strictEqual(builder._conditions.conditions.length, 0);
+
+    // First result should have one condition
+    assert.strictEqual(result1._conditions.conditions.length, 1);
+
+    // Second result should have two conditions
+    assert.strictEqual(result2._conditions.conditions.length, 2);
+  });
+});
+
+describe("SQL Generation for Null Check Conditions", () => {
+  test("generateNullSql should generate IS NULL SQL", () => {
+    const condition = createIsNullCondition("deleted_at");
+    const sql = generateNullSql(condition);
+
+    assert.strictEqual(sql, "deleted_at IS NULL");
+  });
+
+  test("generateNullSql should generate IS NOT NULL SQL", () => {
+    const condition = createIsNotNullCondition("created_at");
+    const sql = generateNullSql(condition);
+
+    assert.strictEqual(sql, "created_at IS NOT NULL");
+  });
+
+  test("generateNullSql should handle column names with underscores", () => {
+    const condition = createIsNullCondition("user_deleted_at");
+    const sql = generateNullSql(condition);
+
+    assert.strictEqual(sql, "user_deleted_at IS NULL");
+  });
+
+  test("generateNullSql should handle various column name formats", () => {
     const testCases = [
-      { creator: createEqCondition, operator: "=" },
-      { creator: createNeCondition, operator: "!=" },
-      { creator: createGtCondition, operator: ">" },
-      { creator: createLtCondition, operator: "<" },
-      { creator: createGeCondition, operator: ">=" },
-      { creator: createLeCondition, operator: "<=" },
+      { column: "id", operator: "IS NULL", expected: "id IS NULL" },
+      { column: "user_name", operator: "IS NOT NULL", expected: "user_name IS NOT NULL" },
+      { column: "createdAt", operator: "IS NULL", expected: "createdAt IS NULL" },
+      {
+        column: "last_login_time",
+        operator: "IS NOT NULL",
+        expected: "last_login_time IS NOT NULL",
+      },
     ];
 
-    testCases.forEach(({ creator, operator }) => {
-      const condition = creator("score", 100, "@param1");
-      const sql = generateComparisonSql(condition);
-
-      assert.strictEqual(sql, `score ${operator} @param1`);
+    testCases.forEach(({ column, operator, expected }) => {
+      const condition: Condition = {
+        type: "null",
+        column,
+        operator,
+      };
+      const sql = generateNullSql(condition);
+      assert.strictEqual(sql, expected);
     });
   });
 
-  test("generateComparisonSql should handle complex column names", () => {
-    const testCases = [
-      "simple_column",
-      "CamelCaseColumn",
-      "column123",
-      "column_with_multiple_underscores",
-      "a",
-      "very_long_column_name_that_might_be_used_in_practice",
-    ];
+  test("generateNullSql should throw error for non-null condition types", () => {
+    const nonNullCondition: Condition = {
+      type: "comparison",
+      column: "age",
+      operator: "=",
+      value: 25,
+      parameterName: "@param1",
+    };
 
-    testCases.forEach((columnName) => {
-      const condition = createEqCondition(columnName, "value", "@param1");
-      const sql = generateComparisonSql(condition);
-
-      assert.strictEqual(sql, `${columnName} = @param1`);
-    });
+    assert.throws(
+      () => generateNullSql(nonNullCondition),
+      /Expected null condition, got comparison/
+    );
   });
 
-  test("generateComparisonSql should maintain consistency with null handling across operators", () => {
-    // Test that = with null becomes IS NULL
-    const eqNullCondition = createEqCondition("field", null, "@param1");
-    assert.strictEqual(generateComparisonSql(eqNullCondition), "field IS NULL");
+  test("generateConditionSql should handle null conditions", () => {
+    const isNullCondition = createIsNullCondition("deleted_at");
+    const isNotNullCondition = createIsNotNullCondition("created_at");
 
-    // Test that != with null becomes IS NOT NULL
-    const neNullCondition = createNeCondition("field", null, "@param1");
-    assert.strictEqual(generateComparisonSql(neNullCondition), "field IS NOT NULL");
+    const sql1 = generateConditionSql(isNullCondition);
+    const sql2 = generateConditionSql(isNotNullCondition);
 
-    // Test that other operators with null use parameterized form
-    const gtNullCondition = createGtCondition("field", null, "@param1");
-    assert.strictEqual(generateComparisonSql(gtNullCondition), "field > @param1");
-
-    const ltNullCondition = createLtCondition("field", null, "@param1");
-    assert.strictEqual(generateComparisonSql(ltNullCondition), "field < @param1");
-
-    const geNullCondition = createGeCondition("field", null, "@param1");
-    assert.strictEqual(generateComparisonSql(geNullCondition), "field >= @param1");
-
-    const leNullCondition = createLeCondition("field", null, "@param1");
-    assert.strictEqual(generateComparisonSql(leNullCondition), "field <= @param1");
+    assert.strictEqual(sql1, "deleted_at IS NULL");
+    assert.strictEqual(sql2, "created_at IS NOT NULL");
   });
+});
+
+test("generateComparisonSql should handle edge cases with empty strings", () => {
+  const condition = createEqCondition("description", "", "@param1");
+  const sql = generateComparisonSql(condition);
+
+  assert.strictEqual(sql, "description = @param1");
+});
+
+test("generateComparisonSql should handle zero values correctly", () => {
+  const condition = createEqCondition("count", 0, "@param1");
+  const sql = generateComparisonSql(condition);
+
+  assert.strictEqual(sql, "count = @param1");
+});
+
+test("generateComparisonSql should handle undefined values as non-null", () => {
+  const condition = createEqCondition("optional_field", undefined, "@param1");
+  const sql = generateComparisonSql(condition);
+
+  // undefined should be treated as a regular value, not as null
+  assert.strictEqual(sql, "optional_field = @param1");
+});
+
+test("generateComparisonSql should work with all comparison condition creation helpers", () => {
+  const testCases = [
+    { creator: createEqCondition, operator: "=" },
+    { creator: createNeCondition, operator: "!=" },
+    { creator: createGtCondition, operator: ">" },
+    { creator: createLtCondition, operator: "<" },
+    { creator: createGeCondition, operator: ">=" },
+    { creator: createLeCondition, operator: "<=" },
+  ];
+
+  testCases.forEach(({ creator, operator }) => {
+    const condition = creator("score", 100, "@param1");
+    const sql = generateComparisonSql(condition);
+
+    assert.strictEqual(sql, `score ${operator} @param1`);
+  });
+});
+
+test("generateComparisonSql should handle complex column names", () => {
+  const testCases = [
+    "simple_column",
+    "CamelCaseColumn",
+    "column123",
+    "column_with_multiple_underscores",
+    "a",
+    "very_long_column_name_that_might_be_used_in_practice",
+  ];
+
+  testCases.forEach((columnName) => {
+    const condition = createEqCondition(columnName, "value", "@param1");
+    const sql = generateComparisonSql(condition);
+
+    assert.strictEqual(sql, `${columnName} = @param1`);
+  });
+});
+
+test("generateComparisonSql should maintain consistency with null handling across operators", () => {
+  // Test that = with null becomes IS NULL
+  const eqNullCondition = createEqCondition("field", null, "@param1");
+  assert.strictEqual(generateComparisonSql(eqNullCondition), "field IS NULL");
+
+  // Test that != with null becomes IS NOT NULL
+  const neNullCondition = createNeCondition("field", null, "@param1");
+  assert.strictEqual(generateComparisonSql(neNullCondition), "field IS NOT NULL");
+
+  // Test that other operators with null use parameterized form
+  const gtNullCondition = createGtCondition("field", null, "@param1");
+  assert.strictEqual(generateComparisonSql(gtNullCondition), "field > @param1");
+
+  const ltNullCondition = createLtCondition("field", null, "@param1");
+  assert.strictEqual(generateComparisonSql(ltNullCondition), "field < @param1");
+
+  const geNullCondition = createGeCondition("field", null, "@param1");
+  assert.strictEqual(generateComparisonSql(geNullCondition), "field >= @param1");
+
+  const leNullCondition = createLeCondition("field", null, "@param1");
+  assert.strictEqual(generateComparisonSql(leNullCondition), "field <= @param1");
 });
 
 describe("SQL Generation for Array Operations (IN/NOT IN)", () => {
@@ -1730,9 +1962,11 @@ describe("WhereBuilder Factory", () => {
     assert.doesNotThrow(() => builder.startsWith("column", "prefix"));
     assert.doesNotThrow(() => builder.endsWith("column", "suffix"));
 
+    // These methods are now implemented
+    assert.doesNotThrow(() => builder.isNull("column"));
+    assert.doesNotThrow(() => builder.isNotNull("column"));
+
     // These methods are still unimplemented
-    assert.throws(() => builder.isNull("column"), /Not implemented yet/);
-    assert.throws(() => builder.isNotNull("column"), /Not implemented yet/);
     assert.throws(() => builder.and(() => builder), /Not implemented yet/);
     assert.throws(() => builder.or(() => builder), /Not implemented yet/);
     assert.throws(() => builder.build(), /Not implemented yet/);

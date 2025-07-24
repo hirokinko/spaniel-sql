@@ -97,7 +97,7 @@
     - Write unit tests for string pattern methods
     - _Requirements: 4.1, 4.2, 4.3, 4.4_
 
-  - [ ] 6.2 Implement null check methods (isNull, isNotNull)
+  - [x] 6.2 Implement null check methods (isNull, isNotNull)
     - Write isNull method that generates IS NULL conditions
     - Write isNotNull method that generates IS NOT NULL conditions
     - Write unit tests for null check methods

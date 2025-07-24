@@ -854,14 +854,18 @@ const createWhereWithState = <
       return createWhereWithState<T>(newConditions, newParameters);
     },
 
-    isNull<K extends keyof T>(_column: K): WhereBuilder<T> {
-      // Implementation will be added in subsequent tasks
-      throw new Error("Not implemented yet");
+    isNull<K extends keyof T>(column: K): WhereBuilder<T> {
+      const condition = createIsNullCondition(String(column));
+      const newConditions = createAndGroup([...builder._conditions.conditions, condition]);
+
+      return createWhereWithState<T>(newConditions, builder._parameters);
     },
 
-    isNotNull<K extends keyof T>(_column: K): WhereBuilder<T> {
-      // Implementation will be added in subsequent tasks
-      throw new Error("Not implemented yet");
+    isNotNull<K extends keyof T>(column: K): WhereBuilder<T> {
+      const condition = createIsNotNullCondition(String(column));
+      const newConditions = createAndGroup([...builder._conditions.conditions, condition]);
+
+      return createWhereWithState<T>(newConditions, builder._parameters);
     },
 
     and(..._conditions: ((builder: WhereBuilder<T>) => WhereBuilder<T>)[]): WhereBuilder<T> {
