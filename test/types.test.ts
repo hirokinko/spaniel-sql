@@ -1967,9 +1967,11 @@ describe("WhereBuilder Factory", () => {
     assert.doesNotThrow(() => builder.isNotNull("column"));
 
     // These methods are still unimplemented
-    assert.throws(() => builder.and(() => builder), /Not implemented yet/);
     assert.throws(() => builder.or(() => builder), /Not implemented yet/);
     assert.throws(() => builder.build(), /Not implemented yet/);
+
+    // The and method is now implemented
+    assert.doesNotThrow(() => builder.and(() => builder));
   });
 
   test("WhereBuilder should have readonly properties", () => {
@@ -2984,5 +2986,259 @@ describe("WhereBuilder String Pattern Methods", () => {
 
       assert.strictEqual(newBuilder._conditions.conditions.length, 4);
     });
+  });
+});
+describe("WhereBuilder and method", () => {
+  test("and method should accept multiple condition builder functions", () => {
+    const builder = createWhere<{ age: number; status: string; name: string }>();
+
+    const result = builder.and(
+      (b) => b.eq("age", 25),
+      (b) => b.eq("status", "active"),
+      (b) => b.eq("name", "John")
+    );
+
+    // Should return a new builder instance
+    assert.notStrictEqual(result, builder);
+
+    // Should have the correct structure
+    assert.ok(result._conditions);
+    assert.ok(result._parameters);
+
+    // Should have combined conditions in an AND group
+    assert.strictEqual(result._conditions.type, "and");
+    assert.strictEqual(result._conditions.conditions.length, 1); // One AND group added
+
+    // The added group should contain all three conditions
+    const addedGroup = result._conditions.conditions[0] as ConditionGroup;
+    assert.ok(isConditionGroup(addedGroup));
+    assert.strictEqual(addedGroup.type, "and");
+    assert.strictEqual(addedGroup.conditions.length, 3);
+
+    // Check individual conditions
+    const conditions = addedGroup.conditions as Condition[];
+    assert.strictEqual(conditions[0].column, "age");
+    assert.strictEqual(conditions[0].value, 25);
+    assert.strictEqual(conditions[1].column, "status");
+    assert.strictEqual(conditions[1].value, "active");
+    assert.strictEqual(conditions[2].column, "name");
+    assert.strictEqual(conditions[2].value, "John");
+  });
+
+  test("and method should handle empty conditions array", () => {
+    const builder = createWhere();
+    const result = builder.and();
+
+    // Should return the same builder instance when no conditions provided
+    assert.strictEqual(result, builder);
+  });
+
+  test("and method should handle single condition", () => {
+    const builder = createWhere<{ age: number }>();
+
+    const result = builder.and((b) => b.eq("age", 25));
+
+    // Should add the condition properly
+    assert.strictEqual(result._conditions.conditions.length, 1);
+
+    const addedGroup = result._conditions.conditions[0] as ConditionGroup;
+    assert.ok(isConditionGroup(addedGroup));
+    assert.strictEqual(addedGroup.conditions.length, 1);
+
+    const condition = addedGroup.conditions[0] as Condition;
+    assert.strictEqual(condition.column, "age");
+    assert.strictEqual(condition.value, 25);
+  });
+
+  test("and method should combine with existing conditions", () => {
+    const builder = createWhere<{ age: number; status: string; name: string }>();
+
+    // Start with an existing condition
+    const builderWithCondition = builder.eq("age", 30);
+
+    // Add more conditions with and method
+    const result = builderWithCondition.and(
+      (b) => b.eq("status", "active"),
+      (b) => b.eq("name", "Jane")
+    );
+
+    // Should have two items in the root AND group: the original condition and the new AND group
+    assert.strictEqual(result._conditions.conditions.length, 2);
+
+    // First condition should be the original
+    const firstCondition = result._conditions.conditions[0] as Condition;
+    assert.ok(isCondition(firstCondition));
+    assert.strictEqual(firstCondition.column, "age");
+    assert.strictEqual(firstCondition.value, 30);
+
+    // Second should be the new AND group
+    const secondGroup = result._conditions.conditions[1] as ConditionGroup;
+    assert.ok(isConditionGroup(secondGroup));
+    assert.strictEqual(secondGroup.type, "and");
+    assert.strictEqual(secondGroup.conditions.length, 2);
+
+    const newConditions = secondGroup.conditions as Condition[];
+    assert.strictEqual(newConditions[0].column, "status");
+    assert.strictEqual(newConditions[0].value, "active");
+    assert.strictEqual(newConditions[1].column, "name");
+    assert.strictEqual(newConditions[1].value, "Jane");
+  });
+
+  test("and method should properly manage parameters", () => {
+    const builder = createWhere<{ age: number; status: string; name: string }>();
+
+    const result = builder.and(
+      (b) => b.eq("age", 25),
+      (b) => b.eq("status", "active"),
+      (b) => b.eq("name", "John")
+    );
+
+    // Should have three parameters
+    assert.strictEqual(Object.keys(result._parameters.parameters).length, 3);
+    assert.strictEqual(result._parameters.counter, 3);
+
+    // Check parameter values
+    assert.strictEqual(result._parameters.parameters.param1, 25);
+    assert.strictEqual(result._parameters.parameters.param2, "active");
+    assert.strictEqual(result._parameters.parameters.param3, "John");
+  });
+
+  test("and method should reuse parameters for same values", () => {
+    const builder = createWhere<{ age: number; status: string }>();
+
+    const result = builder.and(
+      (b) => b.eq("age", 25),
+      (b) => b.eq("status", "active"),
+      (b) => b.eq("age", 25) // Same value as first condition
+    );
+
+    // Should have only two unique parameters
+    assert.strictEqual(Object.keys(result._parameters.parameters).length, 2);
+    assert.strictEqual(result._parameters.counter, 2);
+
+    // Check parameter values
+    assert.strictEqual(result._parameters.parameters.param1, 25);
+    assert.strictEqual(result._parameters.parameters.param2, "active");
+
+    // Check that conditions reference correct parameters
+    const addedGroup = result._conditions.conditions[0] as ConditionGroup;
+    const conditions = addedGroup.conditions as Condition[];
+
+    assert.strictEqual(conditions[0].parameterName, "@param1"); // age = 25
+    assert.strictEqual(conditions[1].parameterName, "@param2"); // status = "active"
+    assert.strictEqual(conditions[2].parameterName, "@param1"); // age = 25 (reused)
+  });
+
+  test("and method should handle different condition types", () => {
+    const builder = createWhere<{ age: number; status: string; name: string; tags: string[] }>();
+
+    const result = builder.and(
+      (b) => b.gt("age", 18),
+      (b) => b.like("name", "John%"),
+      (b) => b.in("status", ["active", "pending"]),
+      (b) => b.isNotNull("tags")
+    );
+
+    const addedGroup = result._conditions.conditions[0] as ConditionGroup;
+    const conditions = addedGroup.conditions as Condition[];
+
+    // Check different condition types
+    assert.strictEqual(conditions[0].type, "comparison");
+    assert.strictEqual(conditions[0].operator, ">");
+
+    assert.strictEqual(conditions[1].type, "like");
+    assert.strictEqual(conditions[1].operator, "LIKE");
+
+    assert.strictEqual(conditions[2].type, "in");
+    assert.strictEqual(conditions[2].operator, "IN");
+
+    assert.strictEqual(conditions[3].type, "null");
+    assert.strictEqual(conditions[3].operator, "IS NOT NULL");
+  });
+
+  test("and method should maintain immutability", () => {
+    const builder = createWhere<{ age: number; status: string }>();
+
+    const result1 = builder.and((b) => b.eq("age", 25));
+    const result2 = builder.and((b) => b.eq("status", "active"));
+
+    // Each call should return a different instance
+    assert.notStrictEqual(result1, result2);
+    assert.notStrictEqual(result1, builder);
+    assert.notStrictEqual(result2, builder);
+
+    // Original builder should remain unchanged
+    assert.strictEqual(builder._conditions.conditions.length, 0);
+    assert.strictEqual(builder._parameters.counter, 0);
+
+    // Each result should have its own conditions
+    assert.strictEqual(result1._conditions.conditions.length, 1);
+    assert.strictEqual(result2._conditions.conditions.length, 1);
+
+    // But they should be different conditions
+    const group1 = result1._conditions.conditions[0] as ConditionGroup;
+    const group2 = result2._conditions.conditions[0] as ConditionGroup;
+    const condition1 = group1.conditions[0] as Condition;
+    const condition2 = group2.conditions[0] as Condition;
+
+    assert.strictEqual(condition1.column, "age");
+    assert.strictEqual(condition2.column, "status");
+  });
+
+  test("and method should handle nested condition building", () => {
+    const builder = createWhere<{ age: number; status: string; priority: string }>();
+
+    const result = builder
+      .eq("age", 30)
+      .and(
+        (b) => b.eq("status", "active"),
+        (b) => b.eq("priority", "high")
+      )
+      .and((b) => b.gt("age", 18));
+
+    // Should have three items in root AND group
+    assert.strictEqual(result._conditions.conditions.length, 3);
+
+    // First: original condition
+    const firstCondition = result._conditions.conditions[0] as Condition;
+    assert.strictEqual(firstCondition.column, "age");
+    assert.strictEqual(firstCondition.value, 30);
+
+    // Second: first and group
+    const secondGroup = result._conditions.conditions[1] as ConditionGroup;
+    assert.strictEqual(secondGroup.conditions.length, 2);
+
+    // Third: second and group
+    const thirdGroup = result._conditions.conditions[2] as ConditionGroup;
+    assert.strictEqual(thirdGroup.conditions.length, 1);
+  });
+
+  test("and method should work with type safety", () => {
+    interface User extends Record<string, ParameterValue> {
+      id: number;
+      name: string;
+      email: string;
+      active: boolean;
+    }
+
+    const builder = createWhere<User>();
+
+    // This should compile without errors
+    const result = builder.and(
+      (b) => b.eq("id", 123),
+      (b) => b.like("name", "John%"),
+      (b) => b.eq("active", true)
+    );
+
+    // Verify the conditions were created correctly
+    const addedGroup = result._conditions.conditions[0] as ConditionGroup;
+    const conditions = addedGroup.conditions as Condition[];
+
+    assert.strictEqual(conditions[0].column, "id");
+    assert.strictEqual(conditions[0].value, 123);
+    assert.strictEqual(conditions[1].column, "name");
+    assert.strictEqual(conditions[1].value, "John%");
+    assert.strictEqual(conditions[2].column, "active");
+    assert.strictEqual(conditions[2].value, true);
   });
 });

@@ -87,7 +87,7 @@
     - Write unit tests for array operation methods
     - _Requirements: 3.1, 3.2, 3.3_
 
-- [ ] 6. Implement string pattern and null check methods
+- [x] 6. Implement string pattern and null check methods
 
   - [x] 6.1 Create string pattern methods (like, notLike, startsWith, endsWith)
 
@@ -105,7 +105,7 @@
 
 - [ ] 7. Implement logical operator methods with array support
 
-  - [ ] 7.1 Create and method with multiple condition support
+  - [x] 7.1 Create and method with multiple condition support
 
     - Write and method that accepts array of condition builder functions
     - Implement proper condition grouping and chaining
