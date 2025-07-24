@@ -154,7 +154,7 @@
     - Write integration tests with typed schemas
     - _Requirements: 6.1, 6.3, 6.4_
 
-- [ ] 10. Create comprehensive test suite
+- [x] 10. Create comprehensive test suite
 
   - [x] 10.1 Write integration tests with complex query scenarios
 
@@ -164,7 +164,7 @@
     - Verify generated SQL matches expected Cloud Spanner syntax
     - _Requirements: 1.2, 1.3, 1.4, 5.3, 5.4, 7.2_
 
-  - [ ] 10.2 Add property-based tests for query generation
+  - [x] 10.2 Add property-based tests for query generation
     - Set up fast-check or similar property-based testing library
     - Create property tests for SQL syntax validity
     - Test parameter generation consistency
