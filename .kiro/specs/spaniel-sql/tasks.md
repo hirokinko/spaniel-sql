@@ -120,7 +120,7 @@
     - Write unit tests for or method and mixed logical operations
     - _Requirements: 5.2, 5.3, 5.4_
 
-- [ ] 8. Implement build method and query result generation
+- [x] 8. Implement build method and query result generation
 
   - [x] 8.1 Create build method that generates final QueryResult
 
@@ -130,7 +130,7 @@
     - Write unit tests for build method with various condition combinations
     - _Requirements: 1.4, 7.1, 7.4_
 
-  - [ ] 8.2 Add comprehensive error handling and validation
+  - [x] 8.2 Add comprehensive error handling and validation
     - Implement runtime validation for condition values
     - Add error handling for malformed conditions
     - Create QueryBuilderError type and error creation functions

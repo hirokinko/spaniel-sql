@@ -16,6 +16,78 @@ export type ParameterValue =
   | ParameterValue[];
 
 /**
+ * Error codes for query builder errors
+ */
+export type QueryBuilderErrorCode =
+  | "INVALID_PARAMETER_VALUE"
+  | "INVALID_CONDITION_TYPE"
+  | "MISSING_PARAMETER_NAME"
+  | "PARAMETER_NAMES_MISMATCH"
+  | "UNSUPPORTED_OPERATOR"
+  | "INVALID_CONDITION_NODE"
+  | "UNDEFINED_CONDITION"
+  | "INVALID_COLUMN_NAME"
+  | "EMPTY_CONDITIONS_ARRAY"
+  | "MALFORMED_CONDITION";
+
+/**
+ * Query builder error type with structured error information
+ */
+export type QueryBuilderError = {
+  readonly type: "QueryBuilderError";
+  readonly message: string;
+  readonly code: QueryBuilderErrorCode;
+  readonly details?: Record<string, unknown>;
+};
+
+/**
+ * Result type for operations that can fail
+ */
+export type Result<T, E = QueryBuilderError> =
+  | { success: true; data: T }
+  | { success: false; error: E };
+
+/**
+ * Creates a QueryBuilderError with the specified message and code
+ */
+export const createQueryBuilderError = (
+  message: string,
+  code: QueryBuilderErrorCode,
+  details?: Record<string, unknown>
+): QueryBuilderError => {
+  if (details !== undefined) {
+    return {
+      type: "QueryBuilderError",
+      message,
+      code,
+      details,
+    };
+  }
+
+  return {
+    type: "QueryBuilderError",
+    message,
+    code,
+  };
+};
+
+/**
+ * Creates a successful Result
+ */
+export const createSuccess = <T>(data: T): Result<T> => ({
+  success: true,
+  data,
+});
+
+/**
+ * Creates a failed Result
+ */
+export const createFailure = <T>(error: QueryBuilderError): Result<T> => ({
+  success: false,
+  error,
+});
+
+/**
  * Type guard to check if a value is a valid ParameterValue
  */
 export const isParameterValue = (value: unknown): value is ParameterValue => {
@@ -44,9 +116,110 @@ export const isParameterValue = (value: unknown): value is ParameterValue => {
  */
 export function assertParameterValue(value: unknown): asserts value is ParameterValue {
   if (!isParameterValue(value)) {
-    throw new Error(`Invalid parameter value: ${typeof value}. Expected ParameterValue.`);
+    const error = createQueryBuilderError(
+      `Invalid parameter value: ${typeof value}. Expected ParameterValue.`,
+      "INVALID_PARAMETER_VALUE",
+      { providedType: typeof value, providedValue: value }
+    );
+    throw new Error(error.message);
   }
 }
+
+/**
+ * Validates a parameter value and returns a Result
+ */
+export const validateParameterValue = (value: unknown): Result<ParameterValue> => {
+  if (!isParameterValue(value)) {
+    return createFailure(
+      createQueryBuilderError(
+        `Invalid parameter value: ${typeof value}. Expected ParameterValue.`,
+        "INVALID_PARAMETER_VALUE",
+        { providedType: typeof value, providedValue: value }
+      )
+    );
+  }
+  return createSuccess(value);
+};
+
+/**
+ * Validates a column name (basic validation for non-empty strings)
+ */
+export const validateColumnName = (column: unknown): Result<string> => {
+  if (typeof column !== "string") {
+    return createFailure(
+      createQueryBuilderError(
+        `Invalid column name: expected string, got ${typeof column}`,
+        "INVALID_COLUMN_NAME",
+        { providedType: typeof column, providedValue: column }
+      )
+    );
+  }
+
+  if (column.trim() === "") {
+    return createFailure(
+      createQueryBuilderError("Column name cannot be empty", "INVALID_COLUMN_NAME", {
+        providedValue: column,
+      })
+    );
+  }
+
+  return createSuccess(column);
+};
+
+/**
+ * Validates a condition object structure
+ */
+export const validateCondition = (condition: unknown): Result<Condition> => {
+  if (!condition || typeof condition !== "object") {
+    return createFailure(
+      createQueryBuilderError("Condition must be a non-null object", "MALFORMED_CONDITION", {
+        providedType: typeof condition,
+        providedValue: condition,
+      })
+    );
+  }
+
+  const cond = condition as { type?: unknown; column?: unknown; operator?: unknown };
+
+  // Validate required fields
+  if (!cond.type || typeof cond.type !== "string") {
+    return createFailure(
+      createQueryBuilderError("Condition must have a valid type field", "MALFORMED_CONDITION", {
+        condition,
+      })
+    );
+  }
+
+  if (!cond.column || typeof cond.column !== "string") {
+    return createFailure(
+      createQueryBuilderError("Condition must have a valid column field", "MALFORMED_CONDITION", {
+        condition,
+      })
+    );
+  }
+
+  if (!cond.operator || typeof cond.operator !== "string") {
+    return createFailure(
+      createQueryBuilderError("Condition must have a valid operator field", "MALFORMED_CONDITION", {
+        condition,
+      })
+    );
+  }
+
+  // Type-specific validation
+  const validTypes: ConditionType[] = ["comparison", "in", "like", "null", "function"];
+  if (!validTypes.includes(cond.type as ConditionType)) {
+    return createFailure(
+      createQueryBuilderError(
+        `Invalid condition type: ${cond.type}. Must be one of: ${validTypes.join(", ")}`,
+        "INVALID_CONDITION_TYPE",
+        { providedType: cond.type, validTypes }
+      )
+    );
+  }
+
+  return createSuccess(condition as Condition);
+};
 
 /**
  * Cloud Spanner data types
@@ -446,7 +619,12 @@ export const createOrGroup = (conditions: ConditionNode[]): ConditionGroup => ({
  */
 export const generateComparisonSql = (condition: Condition): string => {
   if (condition.type !== "comparison") {
-    throw new Error(`Expected comparison condition, got ${condition.type}`);
+    const error = createQueryBuilderError(
+      `Expected comparison condition, got ${condition.type}`,
+      "INVALID_CONDITION_TYPE",
+      { expectedType: "comparison", actualType: condition.type }
+    );
+    throw new Error(error.message);
   }
 
   const { column, operator, value, parameterName } = condition;
@@ -466,7 +644,12 @@ export const generateComparisonSql = (condition: Condition): string => {
 
   // Standard parameterized comparison
   if (!parameterName) {
-    throw new Error("Parameter name is required for non-null comparison conditions");
+    const error = createQueryBuilderError(
+      "Parameter name is required for non-null comparison conditions",
+      "MISSING_PARAMETER_NAME",
+      { condition, value }
+    );
+    throw new Error(error.message);
   }
 
   return `${column} ${operator} ${parameterName}`;
@@ -480,7 +663,12 @@ export const generateComparisonSql = (condition: Condition): string => {
  */
 export const generateInSql = (condition: Condition): string => {
   if (condition.type !== "in") {
-    throw new Error(`Expected in condition, got ${condition.type}`);
+    const error = createQueryBuilderError(
+      `Expected in condition, got ${condition.type}`,
+      "INVALID_CONDITION_TYPE",
+      { expectedType: "in", actualType: condition.type }
+    );
+    throw new Error(error.message);
   }
 
   const { column, operator, values, parameterNames, parameterName } = condition;
@@ -499,7 +687,12 @@ export const generateInSql = (condition: Condition): string => {
   // Handle UNNEST form (single array parameter)
   if (operator === "IN UNNEST" || operator === "NOT IN UNNEST") {
     if (!parameterName) {
-      throw new Error("Parameter name is required for UNNEST conditions");
+      const error = createQueryBuilderError(
+        "Parameter name is required for UNNEST conditions",
+        "MISSING_PARAMETER_NAME",
+        { condition, operator }
+      );
+      throw new Error(error.message);
     }
     return `${column} ${operator}(${parameterName})`;
   }
@@ -508,7 +701,16 @@ export const generateInSql = (condition: Condition): string => {
   if (operator === "IN" || operator === "NOT IN") {
     // Validate parameter names array
     if (!parameterNames || parameterNames.length !== (values?.length ?? 0)) {
-      throw new Error("Parameter names array must match values array length");
+      const error = createQueryBuilderError(
+        "Parameter names array must match values array length",
+        "PARAMETER_NAMES_MISMATCH",
+        {
+          condition,
+          valuesLength: values?.length ?? 0,
+          parameterNamesLength: parameterNames?.length ?? 0,
+        }
+      );
+      throw new Error(error.message);
     }
 
     // Generate parameter list: (@param1, @param2, @param3)
@@ -516,7 +718,12 @@ export const generateInSql = (condition: Condition): string => {
     return `${column} ${operator} (${parameterList})`;
   }
 
-  throw new Error(`Unsupported IN operator: ${operator}`);
+  const error = createQueryBuilderError(
+    `Unsupported IN operator: ${operator}`,
+    "UNSUPPORTED_OPERATOR",
+    { operator, supportedOperators: ["IN", "NOT IN", "IN UNNEST", "NOT IN UNNEST"] }
+  );
+  throw new Error(error.message);
 };
 
 /**
@@ -526,13 +733,23 @@ export const generateInSql = (condition: Condition): string => {
  */
 export const generateLikeSql = (condition: Condition): string => {
   if (condition.type !== "like") {
-    throw new Error(`Expected like condition, got ${condition.type}`);
+    const error = createQueryBuilderError(
+      `Expected like condition, got ${condition.type}`,
+      "INVALID_CONDITION_TYPE",
+      { expectedType: "like", actualType: condition.type }
+    );
+    throw new Error(error.message);
   }
 
   const { column, operator, parameterName } = condition;
 
   if (!parameterName) {
-    throw new Error("Parameter name is required for LIKE conditions");
+    const error = createQueryBuilderError(
+      "Parameter name is required for LIKE conditions",
+      "MISSING_PARAMETER_NAME",
+      { condition, operator }
+    );
+    throw new Error(error.message);
   }
 
   return `${column} ${operator} ${parameterName}`;
@@ -545,13 +762,23 @@ export const generateLikeSql = (condition: Condition): string => {
  */
 export const generateFunctionSql = (condition: Condition): string => {
   if (condition.type !== "function") {
-    throw new Error(`Expected function condition, got ${condition.type}`);
+    const error = createQueryBuilderError(
+      `Expected function condition, got ${condition.type}`,
+      "INVALID_CONDITION_TYPE",
+      { expectedType: "function", actualType: condition.type }
+    );
+    throw new Error(error.message);
   }
 
   const { column, operator, parameterName } = condition;
 
   if (!parameterName) {
-    throw new Error("Parameter name is required for function conditions");
+    const error = createQueryBuilderError(
+      "Parameter name is required for function conditions",
+      "MISSING_PARAMETER_NAME",
+      { condition, operator }
+    );
+    throw new Error(error.message);
   }
 
   // Generate function call: STARTS_WITH(column, @param) or ENDS_WITH(column, @param)
@@ -565,7 +792,12 @@ export const generateFunctionSql = (condition: Condition): string => {
  */
 export const generateNullSql = (condition: Condition): string => {
   if (condition.type !== "null") {
-    throw new Error(`Expected null condition, got ${condition.type}`);
+    const error = createQueryBuilderError(
+      `Expected null condition, got ${condition.type}`,
+      "INVALID_CONDITION_TYPE",
+      { expectedType: "null", actualType: condition.type }
+    );
+    throw new Error(error.message);
   }
 
   const { column, operator } = condition;
@@ -593,14 +825,28 @@ export const generateConditionSql = (node: ConditionNode): string => {
         return generateFunctionSql(node);
       case "null":
         return generateNullSql(node);
-      default:
-        throw new Error(`Unsupported condition type: ${(node as Condition).type}`);
+      default: {
+        const error = createQueryBuilderError(
+          `Unsupported condition type: ${(node as Condition).type}`,
+          "UNSUPPORTED_OPERATOR",
+          {
+            conditionType: (node as Condition).type,
+            supportedTypes: ["comparison", "in", "like", "function", "null"],
+          }
+        );
+        throw new Error(error.message);
+      }
     }
   } else if (isConditionGroup(node)) {
     // Handle condition groups recursively
     return generateLogicalSql(node);
   } else {
-    throw new Error("Invalid condition node: must be either Condition or ConditionGroup");
+    const error = createQueryBuilderError(
+      "Invalid condition node: must be either Condition or ConditionGroup",
+      "INVALID_CONDITION_NODE",
+      { providedNode: node }
+    );
+    throw new Error(error.message);
   }
 };
 
@@ -669,7 +915,10 @@ export const filterNullParameters = (
  */
 export const generateLogicalSql = (group: ConditionGroup): string => {
   if (!isConditionGroup(group)) {
-    throw new Error("Expected condition group");
+    const error = createQueryBuilderError("Expected condition group", "INVALID_CONDITION_NODE", {
+      providedNode: group,
+    });
+    throw new Error(error.message);
   }
 
   const { type, conditions } = group;
@@ -684,13 +933,28 @@ export const generateLogicalSql = (group: ConditionGroup): string => {
   if (conditions.length === 1) {
     const condition = conditions[0];
     if (!condition) {
-      throw new Error("Invalid condition: condition is undefined");
+      const error = createQueryBuilderError(
+        "Invalid condition: condition is undefined",
+        "UNDEFINED_CONDITION",
+        { conditionGroup: group, conditionIndex: 0 }
+      );
+      throw new Error(error.message);
     }
     return generateConditionSql(condition);
   }
 
   // Generate SQL for each condition
-  const conditionSqls = conditions.map((condition) => generateConditionSql(condition));
+  const conditionSqls = conditions.map((condition, index) => {
+    if (!condition) {
+      const error = createQueryBuilderError(
+        `Invalid condition at index ${index}: condition is undefined`,
+        "UNDEFINED_CONDITION",
+        { conditionGroup: group, conditionIndex: index }
+      );
+      throw new Error(error.message);
+    }
+    return generateConditionSql(condition);
+  });
 
   // Join with appropriate logical operator
   const operator = type.toUpperCase(); // "AND" or "OR"
