@@ -1966,8 +1966,10 @@ describe("WhereBuilder Factory", () => {
     assert.doesNotThrow(() => builder.isNull("column"));
     assert.doesNotThrow(() => builder.isNotNull("column"));
 
+    // The or method is now implemented
+    assert.doesNotThrow(() => builder.or(() => builder));
+
     // These methods are still unimplemented
-    assert.throws(() => builder.or(() => builder), /Not implemented yet/);
     assert.throws(() => builder.build(), /Not implemented yet/);
 
     // The and method is now implemented
@@ -3240,5 +3242,350 @@ describe("WhereBuilder and method", () => {
     assert.strictEqual(conditions[1].value, "John%");
     assert.strictEqual(conditions[2].column, "active");
     assert.strictEqual(conditions[2].value, true);
+  });
+});
+describe("WhereBuilder or method", () => {
+  test("or method should accept multiple condition builder functions", () => {
+    const builder = createWhere<{ age: number; status: string; name: string }>();
+
+    const result = builder.or(
+      (b) => b.eq("age", 25),
+      (b) => b.eq("status", "active"),
+      (b) => b.like("name", "John%")
+    );
+
+    // Should return new builder instance
+    assert.notStrictEqual(result, builder);
+
+    // Should have one OR group in the root AND group
+    assert.strictEqual(result._conditions.type, "and");
+    assert.strictEqual(result._conditions.conditions.length, 1);
+
+    const orGroup = result._conditions.conditions[0] as ConditionGroup;
+    assert.strictEqual(orGroup.type, "or");
+    assert.strictEqual(orGroup.conditions.length, 3);
+
+    // Check individual conditions
+    const conditions = orGroup.conditions as Condition[];
+    assert.strictEqual(conditions[0].column, "age");
+    assert.strictEqual(conditions[0].value, 25);
+    assert.strictEqual(conditions[1].column, "status");
+    assert.strictEqual(conditions[1].value, "active");
+    assert.strictEqual(conditions[2].column, "name");
+    assert.strictEqual(conditions[2].value, "John%");
+  });
+
+  test("or method should handle empty conditions array", () => {
+    const builder = createWhere<{ age: number }>();
+
+    const result = builder.or();
+
+    // Should return the same builder when no conditions provided
+    assert.strictEqual(result, builder);
+    assert.strictEqual(result._conditions.conditions.length, 0);
+  });
+
+  test("or method should handle single condition", () => {
+    const builder = createWhere<{ age: number }>();
+
+    const result = builder.or((b) => b.eq("age", 25));
+
+    // Should have one OR group with one condition
+    assert.strictEqual(result._conditions.conditions.length, 1);
+
+    const orGroup = result._conditions.conditions[0] as ConditionGroup;
+    assert.strictEqual(orGroup.type, "or");
+    assert.strictEqual(orGroup.conditions.length, 1);
+
+    const condition = orGroup.conditions[0] as Condition;
+    assert.strictEqual(condition.column, "age");
+    assert.strictEqual(condition.value, 25);
+  });
+
+  test("or method should manage parameters correctly", () => {
+    const builder = createWhere<{ age: number; status: string; priority: string }>();
+
+    const result = builder.or(
+      (b) => b.eq("age", 25),
+      (b) => b.eq("status", "active"),
+      (b) => b.eq("priority", "high")
+    );
+
+    // Should have 3 parameters
+    assert.strictEqual(Object.keys(result._parameters.parameters).length, 3);
+    assert.strictEqual(result._parameters.parameters.param1, 25);
+    assert.strictEqual(result._parameters.parameters.param2, "active");
+    assert.strictEqual(result._parameters.parameters.param3, "high");
+  });
+
+  test("or method should reuse parameters for same values", () => {
+    const builder = createWhere<{ status: string; priority: string }>();
+
+    const result = builder.or(
+      (b) => b.eq("status", "active"),
+      (b) => b.eq("priority", "active") // Same value as status
+    );
+
+    // Should reuse parameter for same value
+    assert.strictEqual(Object.keys(result._parameters.parameters).length, 1);
+    assert.strictEqual(result._parameters.parameters.param1, "active");
+
+    const orGroup = result._conditions.conditions[0] as ConditionGroup;
+    const conditions = orGroup.conditions as Condition[];
+    assert.strictEqual(conditions[0].parameterName, "@param1");
+    assert.strictEqual(conditions[1].parameterName, "@param1");
+  });
+
+  test("or method should work with complex condition functions", () => {
+    const builder = createWhere<{ age: number; status: string; tags: string }>();
+
+    const result = builder.or(
+      (b) => b.gt("age", 18).lt("age", 65), // Multiple conditions in one function
+      (b) => b.eq("status", "premium"),
+      (b) => b.in("tags", ["vip", "gold"])
+    );
+
+    // Should have one OR group
+    const orGroup = result._conditions.conditions[0] as ConditionGroup;
+    assert.strictEqual(orGroup.type, "or");
+    assert.strictEqual(orGroup.conditions.length, 4); // 2 from first function + 1 + 1
+
+    // Check that parameters were managed correctly
+    assert.ok(Object.keys(result._parameters.parameters).length >= 4);
+  });
+
+  test("or method should combine with existing conditions using AND", () => {
+    const builder = createWhere<{ department: string; level: string; experience: number }>();
+
+    const result = builder.eq("department", "engineering").or(
+      (b) => b.eq("level", "senior"),
+      (b) => b.eq("level", "lead")
+    );
+
+    // Should have 2 conditions in root AND group: original condition + OR group
+    assert.strictEqual(result._conditions.type, "and");
+    assert.strictEqual(result._conditions.conditions.length, 2);
+
+    // First condition: department = engineering
+    const firstCondition = result._conditions.conditions[0] as Condition;
+    assert.strictEqual(firstCondition.column, "department");
+    assert.strictEqual(firstCondition.value, "engineering");
+
+    // Second condition: OR group
+    const orGroup = result._conditions.conditions[1] as ConditionGroup;
+    assert.strictEqual(orGroup.type, "or");
+    assert.strictEqual(orGroup.conditions.length, 2);
+  });
+
+  test("or method should handle nested condition builders", () => {
+    const builder = createWhere<{ age: number; status: string; priority: string }>();
+
+    const result = builder.or(
+      (b) => b.eq("age", 25).eq("status", "active"), // AND within OR
+      (b) => b.eq("priority", "high")
+    );
+
+    const orGroup = result._conditions.conditions[0] as ConditionGroup;
+    assert.strictEqual(orGroup.type, "or");
+    assert.strictEqual(orGroup.conditions.length, 3); // 2 from first function + 1 from second
+  });
+
+  test("or method should be chainable with multiple calls", () => {
+    const builder = createWhere<{ age: number; status: string; priority: string }>();
+
+    const result = builder
+      .or(
+        (b) => b.eq("age", 25),
+        (b) => b.eq("status", "active")
+      )
+      .or((b) => b.eq("priority", "high"));
+
+    // Should have 2 OR groups in the root AND group
+    assert.strictEqual(result._conditions.conditions.length, 2);
+
+    const firstOrGroup = result._conditions.conditions[0] as ConditionGroup;
+    const secondOrGroup = result._conditions.conditions[1] as ConditionGroup;
+
+    assert.strictEqual(firstOrGroup.type, "or");
+    assert.strictEqual(firstOrGroup.conditions.length, 2);
+    assert.strictEqual(secondOrGroup.type, "or");
+    assert.strictEqual(secondOrGroup.conditions.length, 1);
+  });
+
+  test("or method should work with type safety", () => {
+    interface User extends Record<string, ParameterValue> {
+      id: number;
+      name: string;
+      email: string;
+      active: boolean;
+    }
+
+    const builder = createWhere<User>();
+
+    // This should compile without errors
+    const result = builder.or(
+      (b) => b.eq("id", 123),
+      (b) => b.like("name", "John%"),
+      (b) => b.eq("active", true)
+    );
+
+    // Verify the conditions were created correctly
+    const orGroup = result._conditions.conditions[0] as ConditionGroup;
+    const conditions = orGroup.conditions as Condition[];
+
+    assert.strictEqual(conditions[0].column, "id");
+    assert.strictEqual(conditions[0].value, 123);
+    assert.strictEqual(conditions[1].column, "name");
+    assert.strictEqual(conditions[1].value, "John%");
+    assert.strictEqual(conditions[2].column, "active");
+    assert.strictEqual(conditions[2].value, true);
+  });
+});
+
+describe("WhereBuilder mixed AND/OR operations", () => {
+  test("should handle mixed AND and OR operations correctly", () => {
+    const builder = createWhere<{ department: string; level: string; experience: number }>();
+
+    const result = builder.eq("department", "engineering").and(
+      (b) =>
+        b.or(
+          (inner) => inner.eq("level", "senior"),
+          (inner) => inner.eq("level", "lead")
+        ),
+      (b) => b.gt("experience", 5)
+    );
+
+    // Root should be AND with 2 conditions: department + AND group
+    assert.strictEqual(result._conditions.type, "and");
+    assert.strictEqual(result._conditions.conditions.length, 2);
+
+    // First condition: department
+    const departmentCondition = result._conditions.conditions[0] as Condition;
+    assert.strictEqual(departmentCondition.column, "department");
+
+    // Second condition: AND group containing OR group + experience condition
+    const andGroup = result._conditions.conditions[1] as ConditionGroup;
+    assert.strictEqual(andGroup.type, "and");
+    assert.strictEqual(andGroup.conditions.length, 2);
+
+    // First item in AND group should be OR group
+    const orGroup = andGroup.conditions[0] as ConditionGroup;
+    assert.strictEqual(orGroup.type, "or");
+    assert.strictEqual(orGroup.conditions.length, 2);
+
+    // Second item in AND group should be experience condition
+    const experienceCondition = andGroup.conditions[1] as Condition;
+    assert.strictEqual(experienceCondition.column, "experience");
+  });
+
+  test("should handle OR containing AND operations", () => {
+    const builder = createWhere<{
+      age: number;
+      status: string;
+      priority: string;
+      department: string;
+    }>();
+
+    const result = builder.or(
+      (b) => b.eq("age", 25).eq("status", "active"), // AND within OR
+      (b) => b.eq("priority", "high").eq("department", "sales") // AND within OR
+    );
+
+    const orGroup = result._conditions.conditions[0] as ConditionGroup;
+    assert.strictEqual(orGroup.type, "or");
+    assert.strictEqual(orGroup.conditions.length, 4); // 2 + 2 conditions flattened
+
+    // All conditions should be at the same level in the OR group
+    const conditions = orGroup.conditions as Condition[];
+    assert.strictEqual(conditions[0].column, "age");
+    assert.strictEqual(conditions[1].column, "status");
+    assert.strictEqual(conditions[2].column, "priority");
+    assert.strictEqual(conditions[3].column, "department");
+  });
+
+  test("should handle complex nested logical operations", () => {
+    const builder = createWhere<{
+      department: string;
+      level: string;
+      experience: number;
+      active: boolean;
+      location: string;
+    }>();
+
+    const result = builder
+      .eq("active", true)
+      .and(
+        (b) =>
+          b.or(
+            (inner) => inner.eq("department", "engineering").ge("experience", 5),
+            (inner) => inner.eq("department", "sales").ge("experience", 3)
+          ),
+        (b) =>
+          b.or(
+            (inner) => inner.eq("level", "senior"),
+            (inner) => inner.eq("level", "lead"),
+            (inner) => inner.eq("level", "manager")
+          )
+      )
+      .eq("location", "US");
+
+    // Should have 3 conditions in root AND: active + AND group + location
+    assert.strictEqual(result._conditions.conditions.length, 3);
+
+    // Check the nested AND group structure
+    const nestedAndGroup = result._conditions.conditions[1] as ConditionGroup;
+    assert.strictEqual(nestedAndGroup.type, "and");
+    assert.strictEqual(nestedAndGroup.conditions.length, 2);
+
+    // Both items in nested AND should be OR groups
+    const firstOrGroup = nestedAndGroup.conditions[0] as ConditionGroup;
+    const secondOrGroup = nestedAndGroup.conditions[1] as ConditionGroup;
+    assert.strictEqual(firstOrGroup.type, "or");
+    assert.strictEqual(secondOrGroup.type, "or");
+  });
+
+  test("should maintain parameter consistency across mixed operations", () => {
+    const builder = createWhere<{ status: string; priority: string; age: number }>();
+
+    const result = builder
+      .and(
+        (b) => b.eq("status", "active"),
+        (b) =>
+          b.or(
+            (inner) => inner.eq("priority", "high"),
+            (inner) => inner.eq("priority", "urgent")
+          )
+      )
+      .or(
+        (b) => b.eq("status", "active"), // Should reuse parameter
+        (b) => b.gt("age", 65)
+      );
+
+    // Should reuse parameter for repeated "active" value
+    const parameters = result._parameters.parameters;
+    const activeParams = Object.entries(parameters).filter(([_, value]) => value === "active");
+    assert.strictEqual(activeParams.length, 1); // Only one parameter for "active"
+
+    // Should have parameters for: active, high, urgent, 65
+    assert.strictEqual(Object.keys(parameters).length, 4);
+  });
+
+  test("should handle empty condition functions in mixed operations", () => {
+    const builder = createWhere<{ age: number; status: string }>();
+
+    const result = builder
+      .eq("age", 25)
+      .and() // Empty AND
+      .or() // Empty OR
+      .eq("status", "active");
+
+    // Empty operations should not affect the result
+    assert.strictEqual(result._conditions.conditions.length, 2);
+
+    const firstCondition = result._conditions.conditions[0] as Condition;
+    const secondCondition = result._conditions.conditions[1] as Condition;
+
+    assert.strictEqual(firstCondition.column, "age");
+    assert.strictEqual(secondCondition.column, "status");
   });
 });

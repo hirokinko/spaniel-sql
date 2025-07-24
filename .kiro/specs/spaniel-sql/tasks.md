@@ -103,7 +103,7 @@
     - Write unit tests for null check methods
     - _Requirements: 2.4_
 
-- [ ] 7. Implement logical operator methods with array support
+- [x] 7. Implement logical operator methods with array support
 
   - [x] 7.1 Create and method with multiple condition support
 
@@ -113,7 +113,7 @@
     - Write unit tests for and method with multiple conditions
     - _Requirements: 5.1, 5.2, 5.3_
 
-  - [ ] 7.2 Create or method with multiple condition support
+  - [x] 7.2 Create or method with multiple condition support
     - Write or method that accepts array of condition builder functions
     - Implement proper OR grouping with parentheses
     - Handle mixed AND/OR scenarios correctly

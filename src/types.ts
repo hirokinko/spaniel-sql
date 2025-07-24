@@ -900,9 +900,36 @@ const createWhereWithState = <
       return createWhereWithState<T>(newConditions, currentParameters);
     },
 
-    or(..._conditions: ((builder: WhereBuilder<T>) => WhereBuilder<T>)[]): WhereBuilder<T> {
-      // Implementation will be added in subsequent tasks
-      throw new Error("Not implemented yet");
+    or(...conditions: ((builder: WhereBuilder<T>) => WhereBuilder<T>)[]): WhereBuilder<T> {
+      if (conditions.length === 0) {
+        // No conditions provided, return current builder unchanged
+        return builder;
+      }
+
+      // Apply each condition function to get the resulting conditions
+      const conditionNodes: ConditionNode[] = [];
+      let currentParameters = builder._parameters;
+
+      for (const conditionFn of conditions) {
+        // Create a fresh builder with the current parameter state for each condition function
+        const emptyBuilder = createWhereWithState<T>(createAndGroup([]), currentParameters);
+        const resultBuilder = conditionFn(emptyBuilder);
+
+        // Extract the conditions from the result builder
+        // Since we start with an empty AND group, the conditions will be in the root group
+        conditionNodes.push(...resultBuilder._conditions.conditions);
+
+        // Update current parameters to include new parameters from this condition
+        currentParameters = resultBuilder._parameters;
+      }
+
+      // Create an OR group with the collected conditions
+      const orGroup = createOrGroup(conditionNodes);
+
+      // Combine with existing conditions
+      const newConditions = createAndGroup([...builder._conditions.conditions, orGroup]);
+
+      return createWhereWithState<T>(newConditions, currentParameters);
     },
 
     build(): QueryResult {
