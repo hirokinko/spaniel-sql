@@ -338,7 +338,7 @@ const createSelectWithState = <T extends SchemaConstraint = SchemaConstraint>(
       return createSelectWithState(newQuery, builder._parameters, newSchema);
     },
 
-    // TODO: distinct, having, order by, limitにも対応できるようにする
+    // TODO: Add support for distinct, having, order by, and limit options
     // https://cloud.google.com/spanner/docs/reference/standard-sql/aggregate_functions#string_agg
     stringAgg<K extends keyof T>(
       column: ValidSelectColumn<T, K>,
