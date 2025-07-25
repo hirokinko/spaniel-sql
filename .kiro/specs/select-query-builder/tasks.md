@@ -8,7 +8,7 @@
   - Set up integration points with existing WHERE builder
   - _Requirements: 1.1, 9.1_
 
-- [-] 2. Implement basic column selection
+- [x] 2. Implement basic column selection
 
   - [x] 2.1 Create column selection types and utilities
 
@@ -18,7 +18,7 @@
     - Write unit tests for column selection types
     - _Requirements: 2.1, 2.2, 9.1_
 
-  - [ ] 2.2 Implement select methods (select, selectAll, selectAs)
+  - [x] 2.2 Implement select methods (select, selectAll, selectAs)
     - Write select method for specific column selection with type constraints
     - Implement selectAll method for wildcard selection
     - Create selectAs method for column aliasing with type updates
