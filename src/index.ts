@@ -56,6 +56,9 @@ export {
   createQueryBuilderError,
   createSuccess,
 } from "./errors.js";
+// HavingBuilder - built on WhereBuilder
+export type { HavingBuilder } from "./having-builder.js";
+export { createHaving } from "./having-builder.js";
 // Parameter management
 export type { ParameterManager } from "./parameter-manager.js";
 export { addParameter, createParameterManager } from "./parameter-manager.js";

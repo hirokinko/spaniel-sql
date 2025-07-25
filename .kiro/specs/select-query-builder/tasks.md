@@ -102,7 +102,7 @@
 
 - [ ] 7. Implement HAVING clause
 
-  - [ ] 7.1 Create HAVING clause integration with WHERE builder
+  - [x] 7.1 Create HAVING clause integration with WHERE builder
 
     - Design HAVING clause to reuse WHERE builder logic
     - Implement HavingBuilder type as extension of WhereBuilder
