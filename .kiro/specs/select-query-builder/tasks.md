@@ -69,7 +69,7 @@
     - Write unit tests for aggregate function types
     - _Requirements: 3.1, 3.2, 3.3_
 
-  - [ ] 5.2 Implement basic aggregate methods (count, sum, avg, min, max)
+  - [x] 5.2 Implement basic aggregate methods (count, sum, avg, min, max)
     - Write count method with optional column parameter
     - Implement sum, avg, min, max methods with type constraints
     - Ensure proper return type inference for aggregates
