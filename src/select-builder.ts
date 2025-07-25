@@ -16,9 +16,9 @@ import type {
   SelectColumn,
   SelectedColumns,
   SelectQuery,
-  TableReference,
   ValidSelectColumn,
 } from "./select-types.js";
+import { createTableReference } from "./table-utils.js";
 import type { WhereBuilder } from "./where-builder.js";
 import { createWhere } from "./where-builder.js";
 
@@ -310,18 +310,17 @@ const createSelectWithState = <T extends SchemaConstraint = SchemaConstraint>(
     },
 
     from<U extends SchemaConstraint>(table: string, schema?: U): SelectQueryBuilder<U> {
-      const tableRef: TableReference = schema
-        ? {
-            name: table,
-            schema: schema,
-          }
-        : {
-            name: table,
-          };
+      // Use table validation utilities from task 3.1
+      const tableRefResult = createTableReference(table, undefined, schema);
+
+      if (!tableRefResult.success) {
+        // For now, throw the error - in a real implementation this might be handled differently
+        throw new Error(tableRefResult.error.message);
+      }
 
       const newQuery: SelectQuery = {
         ...builder._query,
-        from: tableRef,
+        from: tableRefResult.data,
       };
 
       const newSchema = (schema || builder._schema) as U;

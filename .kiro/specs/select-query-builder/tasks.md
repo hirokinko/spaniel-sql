@@ -25,7 +25,7 @@
     - Write unit tests for all selection methods
     - _Requirements: 2.1, 2.2, 2.3, 9.2_
 
-- [ ] 3. Implement FROM clause and table specification
+- [x] 3. Implement FROM clause and table specification
 
   - [x] 3.1 Create table reference types and utilities
 
@@ -35,7 +35,7 @@
     - Write unit tests for table reference functionality
     - _Requirements: 1.3, 9.1_
 
-  - [ ] 3.2 Implement from method with schema integration
+  - [x] 3.2 Implement from method with schema integration
     - Write from method that accepts table name and optional schema
     - Implement type transformation to use table schema
     - Integrate with existing parameter management system
