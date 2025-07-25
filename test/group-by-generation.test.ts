@@ -13,7 +13,7 @@ describe("GROUP BY Query Generation", () => {
   it("should generate SELECT with GROUP BY clause", () => {
     const result = createSelect<User>()
       .select("name")
-      .count("id")
+      .count("id") // FIXME: ts2345
       .from("users")
       .groupBy("name")
       .build();
@@ -26,13 +26,14 @@ describe("GROUP BY Query Generation", () => {
     assert.throws(() => {
       createSelect<User>()
         .select("name")
-        .count("id")
+        .count("id") // FIXME: ts2345
         .from("users", schema)
-        .groupBy("invalid" as any, "name");
+        .groupBy("invalid" as keyof User, "name");
     }, /Invalid column in GROUP BY: invalid/);
   });
 
   it("should require grouping of non-aggregate columns", () => {
+    // FIXME: ts2345
     assert.throws(() => {
       createSelect<User>().select("name").count("id").from("users").groupBy("id");
     }, /Column name must appear in GROUP BY/);
