@@ -392,7 +392,7 @@ describe("Compile-time Type Tests", () => {
 
       // Should work with extended properties
       builder.eq("role", "admin");
-      builder.in("permissions", [["read", "write"]]);
+      builder.in("permissions", ["read", "write"]);
 
       // These would cause compile errors:
       // builder.eq("role", 123); // Wrong type
@@ -449,10 +449,10 @@ describe("Compile-time Type Tests", () => {
       const builder = createWhere<ComplexSchema>();
 
       // Should work with complex types
-      builder.in("tags", [["tag1", "tag2"], ["tag3"]]);
+      builder.in("tags", ["tag1", "tag2", "tag3"]);
       builder.eq("config_enabled", true);
       builder.eq("config_timeout", 5000);
-      builder.in("timestamps", [[new Date(), new Date()]]);
+      builder.in("timestamps", [new Date(), new Date()]);
 
       // These would cause compile errors:
       // builder.in("tags", [1, 2, 3]); // Wrong array type

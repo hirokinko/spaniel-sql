@@ -193,10 +193,7 @@ describe("Integration Tests with Typed Schemas", () => {
 
     test("should handle product tag search", () => {
       const query = createWhere<ProductSchema>()
-        .in("tags", [
-          ["gaming", "laptop"],
-          ["portable", "computer"],
-        ])
+        .in("tags", ["gaming", "laptop", "portable", "computer"])
         .eq("in_stock", true)
         .build();
 
@@ -315,7 +312,7 @@ describe("Integration Tests with Typed Schemas", () => {
         .eq("is_active", true)
         .eq("subscription_tier", "premium")
         .isNotNull("last_login")
-        .in("preferences_v2", [["dark_mode", "notifications"], ["compact_view"]])
+        .in("preferences_v2", ["dark_mode", "notifications", "compact_view"])
         .build();
 
       assert.ok(query.sql.includes("is_active = @param"));
@@ -688,7 +685,7 @@ describe("Integration Tests with Typed Schemas", () => {
           // Buffer/Bytes operations
           (b) => b.eq("profile_picture", testBuffer),
           // Array operations
-          (b) => b.in("preferences", [["theme_dark", "notifications_on"]])
+          (b) => b.in("preferences", ["theme_dark", "notifications_on"])
         )
         .build();
 
