@@ -16,7 +16,6 @@ import {
   isValidAggregateFunction,
   removeColumnFromSelect,
   setSelectDistinct,
-  validateAggregateFunction,
   validateColumnName,
   validateSelectClause,
   validateSelectColumn,
@@ -295,11 +294,9 @@ describe("Column Analysis", () => {
 
     funcs.forEach((f) => {
       assert.ok(isValidAggregateFunction(f));
-      assert.ok(validateAggregateFunction(f));
     });
 
     assert.ok(!isValidAggregateFunction("INVALID"));
-    assert.ok(!validateAggregateFunction("INVALID"));
   });
 
   test("getReferencedColumns should extract column names", () => {
