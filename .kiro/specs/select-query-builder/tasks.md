@@ -42,7 +42,7 @@
     - Write unit tests for FROM clause generation
     - _Requirements: 1.3, 1.4, 9.1, 9.2_
 
-- [ ] 4. Integrate with existing WHERE builder
+- [x] 4. Integrate with existing WHERE builder
 
   - [x] 4.1 Create WHERE integration interface
 
@@ -52,7 +52,7 @@
     - Write unit tests for WHERE integration
     - _Requirements: 1.4, 10.4_
 
-  - [ ] 4.2 Implement complete SELECT-FROM-WHERE queries
+  - [x] 4.2 Implement complete SELECT-FROM-WHERE queries
     - Combine SELECT, FROM, and WHERE clause generation
     - Implement proper SQL clause ordering and syntax
     - Test complex queries with multiple conditions

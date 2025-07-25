@@ -18,6 +18,7 @@ import type {
   SelectQuery,
   ValidSelectColumn,
 } from "./select-types.js";
+import { generateSelectSQL } from "./sql-generation.js";
 import { createTableReference } from "./table-utils.js";
 import type { WhereBuilder } from "./where-builder.js";
 import { createWhere, createWhereWithParameters } from "./where-builder.js";
@@ -600,9 +601,9 @@ const createSelectWithState = <T extends SchemaConstraint = SchemaConstraint>(
     },
 
     build(): QueryResult {
-      // For now, return a basic structure - SQL generation will be implemented in later tasks
+      const sql = generateSelectSQL(builder._query);
       return {
-        sql: "SELECT * FROM table", // Placeholder - will be implemented in task 11
+        sql,
         parameters: builder._parameters.parameters,
       };
     },
