@@ -4,7 +4,7 @@
 
 import type { QueryResult, SchemaConstraint } from "./core-types.js";
 import type { ParameterManager } from "./parameter-manager.js";
-import { createParameterManager } from "./parameter-manager.js";
+import { addParameter, createParameterManager } from "./parameter-manager.js";
 import type {
   AggregateResult,
   AliasedColumn,
@@ -338,14 +338,17 @@ const createSelectWithState = <T extends SchemaConstraint = SchemaConstraint>(
       return createSelectWithState(newQuery, builder._parameters, newSchema);
     },
 
+    // TODO: distinct, having, order by, limitにも対応できるようにする
+    // https://cloud.google.com/spanner/docs/reference/standard-sql/aggregate_functions#string_agg
     stringAgg<K extends keyof T>(
       column: ValidSelectColumn<T, K>,
       delimiter = ","
     ): SelectQueryBuilder<AggregateResult<string>> {
+      const [newParameters, parameterName] = addParameter(builder._parameters, delimiter);
       const selectColumn: SelectColumn = {
         type: "aggregate",
         aggregateFunction: "STRING_AGG",
-        expression: `${String(column)}, '${delimiter}'`,
+        expression: `${String(column)}, ${parameterName}`,
       };
 
       const newQuery: SelectQuery = {
@@ -357,7 +360,7 @@ const createSelectWithState = <T extends SchemaConstraint = SchemaConstraint>(
       };
 
       const newSchema = { string_agg: "" } as AggregateResult<string>;
-      return createSelectWithState(newQuery, builder._parameters, newSchema);
+      return createSelectWithState(newQuery, newParameters, newSchema);
     },
 
     from<U extends SchemaConstraint>(table: string, schema?: U): SelectQueryBuilder<U> {

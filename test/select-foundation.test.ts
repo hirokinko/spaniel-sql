@@ -136,7 +136,10 @@ describe("SELECT Query Builder Foundation", () => {
       assert.ok(builder);
       assert.strictEqual(builder._query.select.columns.length, 1);
       assert.strictEqual(builder._query.select.columns[0].aggregateFunction, "STRING_AGG");
-      assert.strictEqual(builder._query.select.columns[0].expression, "name, ','");
+      assert.strictEqual(builder._query.select.columns[0].expression, "name, @param1");
+      assert.strictEqual(builder._parameters.counter, 1);
+      assert.strictEqual(Object.hasOwn(builder._parameters.parameters, "param1"), true);
+      assert.strictEqual(builder._parameters.parameters["param1"], ",");
     });
   });
 
