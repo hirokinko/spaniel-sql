@@ -83,6 +83,25 @@ export type {
   TableReference,
   ValidSelectColumn,
 } from "./select-types.js";
+// SELECT column utilities
+export {
+  addColumnToSelect,
+  createAggregateSelection,
+  createColumnSelection,
+  createExpressionSelection,
+  createSelectAllClause,
+  createSelectClause,
+  getReferencedColumns,
+  getSelectAliases,
+  hasAggregateColumns,
+  hasDuplicateAliases,
+  isAggregateColumn,
+  removeColumnFromSelect,
+  setSelectDistinct,
+  validateSelectClause,
+  validateSelectColumn,
+  validateSelectColumns,
+} from "./select-utils.js";
 // SQL generation
 export {
   filterNullParameters,

@@ -16,9 +16,9 @@ interface TestSchema extends SchemaConstraint {
   age: number;
   is_active: boolean;
   created_at: Date;
-  tags: string[][];
+  tags: string[];
   score: number;
-  category: string;
+  category: string[];
   description: string | null;
 }
 
@@ -298,45 +298,33 @@ describe("Property-Based Tests for Query Generation", () => {
   describe("Array Operations Properties", () => {
     test("should handle IN operations with various array sizes", () => {
       fc.assert(
-        fc.property(
-          fc.array(
-            fc.array(fc.array(fc.string(), { minLength: 1, maxLength: 2 }), {
-              minLength: 1,
-              maxLength: 2,
-            }),
-            { minLength: 0, maxLength: 20 }
-          ),
-          (values) => {
-            const query = createWhere<TestSchema>().in("tags", values).build();
+        fc.property(fc.array(fc.string(), { minLength: 0, maxLength: 20 }), (values) => {
+          const query = createWhere<TestSchema>().in("tags", values).build();
 
-            if (values.length === 0) {
-              // Property: Empty arrays should generate FALSE
-              assert.ok(query.sql.includes("FALSE"), "Empty IN array should generate FALSE");
-            } else {
-              // Property: Non-empty arrays should generate IN clause
-              assert.ok(query.sql.includes("IN ("), "Non-empty IN array should generate IN clause");
+          if (values.length === 0) {
+            // Property: Empty arrays should generate FALSE
+            assert.ok(query.sql.includes("FALSE"), "Empty IN array should generate FALSE");
+          } else {
+            // Property: Non-empty arrays should generate IN clause
+            assert.ok(query.sql.includes("IN ("), "Non-empty IN array should generate IN clause");
 
-              // Property: All array values should be in parameters (excluding empty arrays)
-              values.forEach((value) => {
-                // Only check non-empty arrays
-                if (value.length > 0) {
-                  assert.ok(
-                    Object.values(query.parameters).includes(value),
-                    `Array value ${value} should be in parameters`
-                  );
-                }
-              });
-
-              // Property: Parameter count should match unique values
-              const uniqueValues = [...new Set(values)];
-              assert.strictEqual(
-                Object.keys(query.parameters).length,
-                uniqueValues.length,
-                "Parameter count should match unique array values"
+            // Property: All array values should be in parameters
+            values.forEach((value) => {
+              assert.ok(
+                Object.values(query.parameters).includes(value),
+                `Array value ${JSON.stringify(value)} should be in parameters`
               );
-            }
+            });
+
+            // Property: Parameter count should match unique values
+            const uniqueValues = [...new Set(values)];
+            assert.strictEqual(
+              Object.keys(query.parameters).length,
+              uniqueValues.length,
+              "Parameter count should match unique array values"
+            );
           }
-        ),
+        }),
         { numRuns: 50 }
       );
     });
@@ -729,13 +717,7 @@ describe("Property-Based Tests for Query Generation", () => {
           fc.record({
             eqValue: fc.string(),
             likePattern: fc.string(),
-            inValues: fc.array(
-              fc.array(fc.array(fc.string(), { minLength: 1, maxLength: 2 }), {
-                minLength: 1,
-                maxLength: 2,
-              }),
-              { minLength: 1, maxLength: 5 }
-            ),
+            inValues: fc.array(fc.string(), { minLength: 1, maxLength: 5 }),
             gtValue: fc.integer(),
           }),
           (input) => {

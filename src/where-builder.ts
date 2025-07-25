@@ -41,8 +41,13 @@ export type ValidValue<T extends SchemaConstraint, K extends keyof T> = T[K];
 
 /**
  * Type constraint for array values - ensures array element type matches schema
+ * If T[K] is an array type, extracts the element type and creates an array of that type
+ * If T[K] is not an array, falls back to T[K][]
  */
-export type ValidArrayValue<T extends SchemaConstraint, K extends keyof T> = T[K][];
+export type ValidArrayValue<
+  T extends SchemaConstraint,
+  K extends keyof T,
+> = T[K] extends (infer U)[] ? U[] : T[K][];
 
 /**
  * Type constraint for string operations - ensures column type is compatible with string operations

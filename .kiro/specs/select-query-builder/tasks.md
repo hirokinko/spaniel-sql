@@ -10,7 +10,7 @@
 
 - [ ] 2. Implement basic column selection
 
-  - [ ] 2.1 Create column selection types and utilities
+  - [x] 2.1 Create column selection types and utilities
 
     - Define SelectColumn interface for different column types
     - Implement SelectClause type for managing selected columns
