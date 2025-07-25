@@ -112,6 +112,9 @@ export {
   generateLikeSql,
   generateLogicalSql,
   generateNullSql,
+  generateSelectColumnSql,
+  generateSelectClause,
+  generateSelectSQL,
 } from "./sql-generation.js";
 // Table reference utilities
 export {

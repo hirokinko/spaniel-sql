@@ -6,6 +6,8 @@ import type { Condition, ConditionGroup, ConditionNode } from "./conditions.js";
 import { isCondition, isConditionGroup } from "./conditions.js";
 import type { ParameterValue } from "./core-types.js";
 import { createQueryBuilderError } from "./errors.js";
+import type { SelectClause, SelectColumn, SelectQuery } from "./select-types.js";
+import { formatTableReference } from "./table-utils.js";
 
 /**
  * Generates SQL string for a basic comparison condition
@@ -358,4 +360,66 @@ export const filterNullParameters = (
   }
 
   return filteredParameters;
+};
+
+/**
+ * Generates SQL for a single select column
+ */
+export const generateSelectColumnSql = (column: SelectColumn): string => {
+  switch (column.type) {
+    case "column":
+      return column.alias ? `${column.column} AS ${column.alias}` : String(column.column);
+    case "expression":
+      return column.alias ? `${column.expression} AS ${column.alias}` : String(column.expression);
+    case "aggregate": {
+      const arg = column.column
+        ? column.column
+        : column.expression
+          ? column.expression
+          : column.aggregateFunction === "COUNT"
+            ? "*"
+            : "";
+      const expr = `${column.aggregateFunction}(${arg})`;
+      return column.alias ? `${expr} AS ${column.alias}` : expr;
+    }
+    default: {
+      const error = createQueryBuilderError(
+        `Unsupported select column type: ${(column as any).type}`,
+        "UNSUPPORTED_OPERATOR",
+        { column }
+      );
+      throw new Error(error.message);
+    }
+  }
+};
+
+/**
+ * Generates SQL for a SELECT clause
+ */
+export const generateSelectClause = (select: SelectClause): string => {
+  const distinct = select.distinct ? "DISTINCT " : "";
+  if (select.columns.length === 0) {
+    return `SELECT ${distinct}*`;
+  }
+
+  const columnsSql = select.columns.map(generateSelectColumnSql).join(", ");
+  return `SELECT ${distinct}${columnsSql}`;
+};
+
+/**
+ * Generates SQL for a SELECT query with FROM and WHERE clauses
+ */
+export const generateSelectSQL = (query: SelectQuery): string => {
+  const parts: string[] = [];
+  parts.push(generateSelectClause(query.select));
+
+  if (query.from) {
+    parts.push(`FROM ${formatTableReference(query.from)}`);
+  }
+
+  if (query.where && query.where.conditions.length > 0) {
+    parts.push(`WHERE ${generateConditionSql(query.where)}`);
+  }
+
+  return parts.join(" ");
 };
