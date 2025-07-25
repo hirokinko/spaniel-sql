@@ -1,6 +1,6 @@
 # Implementation Plan
 
-- [ ] 1. Set up SELECT query builder foundation
+- [x] 1. Set up SELECT query builder foundation
 
   - Extend existing project structure for SELECT query functionality
   - Define core SELECT query types and interfaces
@@ -8,7 +8,7 @@
   - Set up integration points with existing WHERE builder
   - _Requirements: 1.1, 9.1_
 
-- [ ] 2. Implement basic column selection
+- [-] 2. Implement basic column selection
 
   - [x] 2.1 Create column selection types and utilities
 
