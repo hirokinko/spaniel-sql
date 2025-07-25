@@ -8,7 +8,6 @@ import { addParameter, createParameterManager } from "./parameter-manager.js";
 import type {
   AggregateResult,
   AliasedColumn,
-  GroupByClause,
   JoinClause,
   JoinedTables,
   LeftJoinedTables,
@@ -18,6 +17,11 @@ import type {
   SelectQuery,
   ValidSelectColumn,
 } from "./select-types.js";
+import {
+  createGroupByClause,
+  validateGroupByClause,
+  validateGroupByColumns,
+} from "./select-utils.js";
 import { generateSelectSQL } from "./sql-generation.js";
 import { createTableReference } from "./table-utils.js";
 import type { WhereBuilder } from "./where-builder.js";
@@ -581,10 +585,24 @@ const createSelectWithState = <T extends SchemaConstraint = SchemaConstraint>(
     },
 
     groupBy<K extends keyof T>(...columns: ValidSelectColumn<T, K>[]): SelectQueryBuilder<T> {
-      const groupByClause: GroupByClause = {
-        columns: columns.map((col) => String(col)),
-        expressions: [],
-      };
+      const groupByClause = createGroupByClause(columns.map((c) => String(c)));
+
+      const schemaForValidation = builder._query.from?.schema
+        ? (builder._query.from.schema as SchemaConstraint)
+        : undefined;
+      const validation = validateGroupByClause(groupByClause, schemaForValidation);
+      if (!validation.valid) {
+        throw new Error(validation.errors.join("; "));
+      }
+
+      const groupValidation = validateGroupByColumns({
+        select: builder._query.select,
+        groupBy: groupByClause,
+      });
+
+      if (!groupValidation.valid) {
+        throw new Error(groupValidation.errors.join("; "));
+      }
 
       const newQuery: SelectQuery = {
         ...builder._query,
