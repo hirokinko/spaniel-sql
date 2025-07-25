@@ -59,7 +59,7 @@
     - Verify parameter reuse across different clause types
     - _Requirements: 1.1, 1.4, 10.4_
 
-- [x] 5. Implement aggregate functions
+- [ ] 5. Implement aggregate functions
 
   - [x] 5.1 Create aggregate function types and utilities
 
