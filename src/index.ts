@@ -113,6 +113,18 @@ export {
   generateLogicalSql,
   generateNullSql,
 } from "./sql-generation.js";
+// Table reference utilities
+export {
+  createTableReference,
+  formatTableReference,
+  getEffectiveTableName,
+  hasTableAlias,
+  isSameTable,
+  mergeTableSchemas,
+  qualifyColumnName,
+  validateTableAlias,
+  validateTableName,
+} from "./table-utils.js";
 // Validation utilities
 export {
   assertParameterValue,

@@ -27,7 +27,7 @@
 
 - [ ] 3. Implement FROM clause and table specification
 
-  - [ ] 3.1 Create table reference types and utilities
+  - [x] 3.1 Create table reference types and utilities
 
     - Define TableReference interface for table specification
     - Implement table alias support with type integration

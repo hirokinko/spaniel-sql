@@ -15,7 +15,9 @@ export type QueryBuilderErrorCode =
   | "UNDEFINED_CONDITION"
   | "INVALID_COLUMN_NAME"
   | "EMPTY_CONDITIONS_ARRAY"
-  | "MALFORMED_CONDITION";
+  | "MALFORMED_CONDITION"
+  | "INVALID_TABLE_NAME"
+  | "INVALID_TABLE_ALIAS";
 
 /**
  * Query builder error type with structured error information
