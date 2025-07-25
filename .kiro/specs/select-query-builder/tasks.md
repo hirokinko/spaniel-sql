@@ -59,7 +59,7 @@
     - Verify parameter reuse across different clause types
     - _Requirements: 1.1, 1.4, 10.4_
 
-- [ ] 5. Implement aggregate functions
+- [x] 5. Implement aggregate functions
 
   - [x] 5.1 Create aggregate function types and utilities
 
@@ -76,7 +76,7 @@
     - Write unit tests for all aggregate functions
     - _Requirements: 3.1, 3.2, 9.2_
 
-  - [ ] 5.3 Implement Cloud Spanner specific aggregates
+  - [x] 5.3 Implement Cloud Spanner specific aggregates
     - Add ARRAY_AGG function with proper array type handling
     - Implement STRING_AGG function for string concatenation
     - Support aggregate function parameters and options

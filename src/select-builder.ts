@@ -4,7 +4,7 @@
 
 import type { QueryResult, SchemaConstraint } from "./core-types.js";
 import type { ParameterManager } from "./parameter-manager.js";
-import { createParameterManager } from "./parameter-manager.js";
+import { addParameter, createParameterManager } from "./parameter-manager.js";
 import type {
   AggregateResult,
   AliasedColumn,
@@ -64,6 +64,13 @@ export type SelectQueryBuilder<T extends SchemaConstraint = SchemaConstraint> = 
   max<K extends keyof T>(
     column: ValidSelectColumn<T, K>
   ): SelectQueryBuilder<AggregateResult<T[K]>>;
+  arrayAgg<K extends keyof T>(
+    column: ValidSelectColumn<T, K>
+  ): SelectQueryBuilder<AggregateResult<T[K][]>>;
+  stringAgg<K extends keyof T>(
+    column: ValidSelectColumn<T, K>,
+    delimiter?: string
+  ): SelectQueryBuilder<AggregateResult<string>>;
 
   // Table specification methods
   from<U extends SchemaConstraint>(table: string, schema?: U): SelectQueryBuilder<U>;
@@ -308,6 +315,52 @@ const createSelectWithState = <T extends SchemaConstraint = SchemaConstraint>(
 
       const newSchema = { max: builder._schema[column] } as AggregateResult<T[K]>;
       return createSelectWithState(newQuery, builder._parameters, newSchema);
+    },
+
+    arrayAgg<K extends keyof T>(
+      column: ValidSelectColumn<T, K>
+    ): SelectQueryBuilder<AggregateResult<T[K][]>> {
+      const selectColumn: SelectColumn = {
+        type: "aggregate",
+        aggregateFunction: "ARRAY_AGG",
+        column: String(column),
+      };
+
+      const newQuery: SelectQuery = {
+        ...builder._query,
+        select: {
+          ...builder._query.select,
+          columns: [...builder._query.select.columns, selectColumn],
+        },
+      };
+
+      const newSchema = { array_agg: [] as T[K][] } as AggregateResult<T[K][]>;
+      return createSelectWithState(newQuery, builder._parameters, newSchema);
+    },
+
+    // TODO: Add support for distinct, having, order by, and limit options
+    // https://cloud.google.com/spanner/docs/reference/standard-sql/aggregate_functions#string_agg
+    stringAgg<K extends keyof T>(
+      column: ValidSelectColumn<T, K>,
+      delimiter = ","
+    ): SelectQueryBuilder<AggregateResult<string>> {
+      const [newParameters, parameterName] = addParameter(builder._parameters, delimiter);
+      const selectColumn: SelectColumn = {
+        type: "aggregate",
+        aggregateFunction: "STRING_AGG",
+        expression: `${String(column)}, ${parameterName}`,
+      };
+
+      const newQuery: SelectQuery = {
+        ...builder._query,
+        select: {
+          ...builder._query.select,
+          columns: [...builder._query.select.columns, selectColumn],
+        },
+      };
+
+      const newSchema = { string_agg: "" } as AggregateResult<string>;
+      return createSelectWithState(newQuery, newParameters, newSchema);
     },
 
     from<U extends SchemaConstraint>(table: string, schema?: U): SelectQueryBuilder<U> {
