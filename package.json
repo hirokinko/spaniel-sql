@@ -6,8 +6,8 @@
   "types": "dist/index.d.ts",
   "scripts": {
     "build": "tsc",
-    "test": "tsx --test test/**/*.test.ts",
-    "test:watch": "tsx --test --watch test/**/*.test.ts",
+    "test": "bash -c 'shopt -s globstar && tsx --test test/**/*.test.ts'",
+    "test:watch": "bash -c 'shopt -s globstar && tsx --test --watch test/**/*.test.ts'",
     "dev": "tsc --watch",
     "clean": "rm -rf dist",
     "format": "biome format --write .",
