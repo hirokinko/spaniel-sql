@@ -17,16 +17,22 @@ export interface SelectColumn {
 }
 
 /**
+ * List of supported aggregate functions
+ */
+export const AGGREGATE_FUNCTIONS = [
+  "COUNT",
+  "SUM",
+  "AVG",
+  "MIN",
+  "MAX",
+  "ARRAY_AGG",
+  "STRING_AGG",
+] as const;
+
+/**
  * Aggregate function types supported by Cloud Spanner
  */
-export type AggregateFunction =
-  | "COUNT"
-  | "SUM"
-  | "AVG"
-  | "MIN"
-  | "MAX"
-  | "ARRAY_AGG"
-  | "STRING_AGG";
+export type AggregateFunction = (typeof AGGREGATE_FUNCTIONS)[number];
 
 /**
  * SELECT clause representation

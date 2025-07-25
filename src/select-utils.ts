@@ -3,7 +3,12 @@
  */
 
 import type { SchemaConstraint } from "./core-types.js";
-import type { AggregateFunction, SelectClause, SelectColumn } from "./select-types.js";
+import {
+  AGGREGATE_FUNCTIONS,
+  type AggregateFunction,
+  type SelectClause,
+  type SelectColumn,
+} from "./select-types.js";
 
 /**
  * Creates a column selection for a specific column name
@@ -119,6 +124,20 @@ export function hasAggregateColumns(selectClause: SelectClause): boolean {
 }
 
 /**
+ * Checks if a value is a supported aggregate function
+ */
+export function isValidAggregateFunction(func: string): func is AggregateFunction {
+  return (AGGREGATE_FUNCTIONS as readonly string[]).includes(func);
+}
+
+/**
+ * Validates that an aggregate function string is supported
+ */
+export function validateAggregateFunction(func: string): boolean {
+  return isValidAggregateFunction(func);
+}
+
+/**
  * Gets all column names referenced in a SelectClause (excluding expressions)
  */
 export function getReferencedColumns(selectClause: SelectClause): string[] {
@@ -211,6 +230,8 @@ export function validateSelectColumn(column: SelectColumn): string[] {
     case "aggregate":
       if (!column.aggregateFunction) {
         errors.push("Aggregate selection must specify an aggregate function");
+      } else if (!isValidAggregateFunction(column.aggregateFunction)) {
+        errors.push(`Invalid aggregate function: ${column.aggregateFunction}`);
       }
       // COUNT can work without a column (COUNT(*))
       if (column.aggregateFunction !== "COUNT" && !column.column) {
