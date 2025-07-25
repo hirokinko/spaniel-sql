@@ -6,7 +6,7 @@ import type { Condition, ConditionGroup, ConditionNode } from "./conditions.js";
 import { isCondition, isConditionGroup } from "./conditions.js";
 import type { ParameterValue } from "./core-types.js";
 import { createQueryBuilderError } from "./errors.js";
-import type { SelectClause, SelectColumn, SelectQuery } from "./select-types.js";
+import type { GroupByClause, SelectClause, SelectColumn, SelectQuery } from "./select-types.js";
 import { formatTableReference } from "./table-utils.js";
 
 /**
@@ -407,6 +407,14 @@ export const generateSelectClause = (select: SelectClause): string => {
 };
 
 /**
+ * Generates SQL for a GROUP BY clause
+ */
+export const generateGroupByClause = (clause: GroupByClause): string => {
+  const parts = [...clause.columns, ...clause.expressions];
+  return `GROUP BY ${parts.join(", ")}`;
+};
+
+/**
  * Generates SQL for a SELECT query with FROM and WHERE clauses
  */
 export const generateSelectSQL = (query: SelectQuery): string => {
@@ -419,6 +427,10 @@ export const generateSelectSQL = (query: SelectQuery): string => {
 
   if (query.where && query.where.conditions.length > 0) {
     parts.push(`WHERE ${generateConditionSql(query.where)}`);
+  }
+
+  if (query.groupBy) {
+    parts.push(generateGroupByClause(query.groupBy));
   }
 
   return parts.join(" ");

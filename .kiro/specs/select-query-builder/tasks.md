@@ -83,7 +83,7 @@
     - Write unit tests for Cloud Spanner specific aggregates
     - _Requirements: 3.3, 10.1_
 
-- [ ] 6. Implement GROUP BY clause
+- [x] 6. Implement GROUP BY clause
 
 - [x] 6.1 Create GROUP BY types and validation
 
@@ -93,7 +93,7 @@
     - Write unit tests for GROUP BY validation logic
     - _Requirements: 4.1, 4.2, 4.3_
 
-  - [ ] 6.2 Implement groupBy method with aggregate validation
+  - [x] 6.2 Implement groupBy method with aggregate validation
     - Write groupBy method that accepts multiple columns
     - Implement validation that ensures proper aggregate/GROUP BY usage
     - Generate proper GROUP BY SQL clause syntax

@@ -111,6 +111,7 @@ export {
   generateComparisonSql,
   generateConditionSql,
   generateFunctionSql,
+  generateGroupByClause,
   generateInSql,
   generateLikeSql,
   generateLogicalSql,
