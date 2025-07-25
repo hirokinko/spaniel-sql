@@ -85,7 +85,7 @@
 
 - [ ] 6. Implement GROUP BY clause
 
-  - [ ] 6.1 Create GROUP BY types and validation
+- [x] 6.1 Create GROUP BY types and validation
 
     - Define GroupByClause interface for grouping specification
     - Implement validation logic for GROUP BY requirements

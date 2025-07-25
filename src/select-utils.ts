@@ -6,8 +6,10 @@ import type { SchemaConstraint } from "./core-types.js";
 import {
   AGGREGATE_FUNCTIONS,
   type AggregateFunction,
+  type GroupByClause,
   type SelectClause,
   type SelectColumn,
+  type SelectQuery,
 } from "./select-types.js";
 
 /**
@@ -270,4 +272,71 @@ export function removeColumnFromSelect(selectClause: SelectClause, index: number
  */
 export function setSelectDistinct(selectClause: SelectClause, distinct: boolean): SelectClause {
   return createSelectClause(selectClause.columns, distinct);
+}
+
+/**
+ * Creates a GROUP BY clause
+ */
+export function createGroupByClause(columns: string[], expressions: string[] = []): GroupByClause {
+  return {
+    columns: [...columns],
+    expressions: [...expressions],
+  };
+}
+
+/**
+ * Validates a GROUP BY clause against the provided schema
+ */
+export function validateGroupByClause<T extends SchemaConstraint>(
+  clause: GroupByClause,
+  schema?: T
+): { valid: boolean; errors: string[] } {
+  const errors: string[] = [];
+
+  if (clause.columns.length === 0 && clause.expressions.length === 0) {
+    errors.push("GROUP BY clause must specify at least one column or expression");
+  }
+
+  for (const col of clause.columns) {
+    if (!validateColumnName(col, schema)) {
+      errors.push(`Invalid column in GROUP BY: ${col}`);
+    }
+  }
+
+  return { valid: errors.length === 0, errors };
+}
+
+/**
+ * Validates that non-aggregate select columns are included in GROUP BY
+ */
+export function validateGroupByColumns(query: Pick<SelectQuery, "select" | "groupBy">): {
+  valid: boolean;
+  errors: string[];
+} {
+  if (!query.groupBy) {
+    return { valid: true, errors: [] };
+  }
+
+  const errors: string[] = [];
+  const { select, groupBy } = query;
+
+  // Only enforce rule when aggregates are present
+  if (hasAggregateColumns(select)) {
+    for (const col of select.columns) {
+      if (col.type === "aggregate") {
+        continue;
+      }
+      if (col.type === "column" && col.column) {
+        if (!groupBy.columns.includes(col.column)) {
+          errors.push(`Column ${col.column} must appear in GROUP BY`);
+        }
+      } else if (col.type === "expression" && col.expression) {
+        if (!groupBy.expressions.includes(col.expression)) {
+          errors.push(`Expression ${col.expression} must appear in GROUP BY`);
+        }
+      }
+    }
+  }
+
+  return { valid: errors.length === 0, errors };
 }
