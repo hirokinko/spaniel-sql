@@ -18,13 +18,7 @@ interface User extends SchemaConstraint {
 describe("FROM Method Validation Integration", () => {
   describe("Valid table names", () => {
     it("should accept valid table names", () => {
-      const validNames = [
-        "users",
-        "user_profiles",
-        "UserProfiles",
-        "_internal_table",
-        "table123"
-      ];
+      const validNames = ["users", "user_profiles", "UserProfiles", "_internal_table", "table123"];
 
       for (const name of validNames) {
         const builder = createSelect<User>().from(name);
@@ -171,7 +165,7 @@ describe("FROM Method Validation Integration", () => {
     it("should work with chained operations", () => {
       const builder = createSelect<User>()
         .from("users")
-        .where(w => w.eq("active", true));
+        .where((w) => w.eq("active", true));
 
       // Should have parameters from WHERE clause
       assert.ok(builder._parameters);

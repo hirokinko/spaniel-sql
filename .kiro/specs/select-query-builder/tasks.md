@@ -44,7 +44,7 @@
 
 - [ ] 4. Integrate with existing WHERE builder
 
-  - [ ] 4.1 Create WHERE integration interface
+  - [x] 4.1 Create WHERE integration interface
 
     - Design integration point between SELECT and WHERE builders
     - Implement where method that accepts WHERE builder function

@@ -387,6 +387,19 @@ const createWhereWithState = <T extends SchemaConstraint = SchemaConstraint>(
 };
 
 /**
+ * Creates a WhereBuilder with specific state (exported for use in other builders)
+ * @param conditions - The condition group to use
+ * @param parameters - The parameter manager to use
+ * @returns A new WhereBuilder instance with the specified state
+ */
+export const createWhereWithParameters = <T extends SchemaConstraint = SchemaConstraint>(
+  conditions: ConditionGroup,
+  parameters: ParameterManager
+): WhereBuilder<T> => {
+  return createWhereWithState<T>(conditions, parameters);
+};
+
+/**
  * Creates a new WhereBuilder instance with empty condition tree and parameter manager
  * @returns A new WhereBuilder instance
  */

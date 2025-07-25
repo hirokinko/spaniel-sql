@@ -20,7 +20,7 @@ import type {
 } from "./select-types.js";
 import { createTableReference } from "./table-utils.js";
 import type { WhereBuilder } from "./where-builder.js";
-import { createWhere } from "./where-builder.js";
+import { createWhere, createWhereWithParameters } from "./where-builder.js";
 
 /**
  * Join condition builder function type
@@ -484,17 +484,34 @@ const createSelectWithState = <T extends SchemaConstraint = SchemaConstraint>(
     },
 
     where(condition: (builder: WhereBuilder<T>) => WhereBuilder<T>): SelectQueryBuilder<T> {
-      const whereBuilder = createWhere<T>();
+      // Create WHERE builder with current parameter state to maintain parameter counter
+      const whereBuilder = createWhereWithParameters<T>(
+        { type: "and", conditions: [] },
+        builder._parameters
+      );
       const conditionBuilder = condition(whereBuilder);
 
-      // Always set the where clause if we have conditions
-      const newQuery: SelectQuery =
-        conditionBuilder._conditions.conditions.length > 0
-          ? {
-              ...builder._query,
-              where: conditionBuilder._conditions,
-            }
-          : builder._query;
+      // If no conditions were added, return unchanged builder
+      if (conditionBuilder._conditions.conditions.length === 0) {
+        return builder;
+      }
+
+      // Combine with existing WHERE conditions if they exist
+      const newQuery: SelectQuery = builder._query.where
+        ? {
+            ...builder._query,
+            where: {
+              type: "and",
+              conditions: [
+                ...builder._query.where.conditions,
+                ...conditionBuilder._conditions.conditions,
+              ],
+            },
+          }
+        : {
+            ...builder._query,
+            where: conditionBuilder._conditions,
+          };
 
       // Merge parameters from the WHERE condition
       const newParameters = {
