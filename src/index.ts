@@ -59,6 +59,30 @@ export {
 // Parameter management
 export type { ParameterManager } from "./parameter-manager.js";
 export { addParameter, createParameterManager } from "./parameter-manager.js";
+export type {
+  JoinCondition,
+  SelectQueryBuilder,
+} from "./select-builder.js";
+export { createSelect } from "./select-builder.js";
+// SelectQueryBuilder - SELECT query API
+export type {
+  AggregateFunction,
+  AggregateResult,
+  AliasedColumn,
+  GroupByClause,
+  JoinClause,
+  JoinedTables,
+  JoinType,
+  LeftJoinedTables,
+  OrderByClause,
+  OrderByColumn,
+  SelectClause,
+  SelectColumn,
+  SelectedColumns,
+  SelectQuery,
+  TableReference,
+  ValidSelectColumn,
+} from "./select-types.js";
 // SQL generation
 export {
   filterNullParameters,
@@ -78,7 +102,6 @@ export {
   validateCondition,
   validateParameterValue,
 } from "./validation.js";
-
 // WhereBuilder - main API
 export type {
   ValidArrayValue,
