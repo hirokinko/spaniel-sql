@@ -130,8 +130,6 @@ export function isValidAggregateFunction(func: string): func is AggregateFunctio
   return (AGGREGATE_FUNCTIONS as readonly string[]).includes(func);
 }
 
-// Removed the validateAggregateFunction function as it is redundant.
-
 /**
  * Gets all column names referenced in a SelectClause (excluding expressions)
  */
