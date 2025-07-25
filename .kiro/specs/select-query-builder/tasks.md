@@ -61,7 +61,7 @@
 
 - [ ] 5. Implement aggregate functions
 
-  - [ ] 5.1 Create aggregate function types and utilities
+  - [x] 5.1 Create aggregate function types and utilities
 
     - Define AggregateFunction enum and related types
     - Implement aggregate column representation in SelectColumn

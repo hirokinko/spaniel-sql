@@ -13,6 +13,7 @@ import {
   hasAggregateColumns,
   hasDuplicateAliases,
   isAggregateColumn,
+  isValidAggregateFunction,
   removeColumnFromSelect,
   setSelectDistinct,
   validateColumnName,
@@ -288,6 +289,16 @@ describe("Column Analysis", () => {
     assert.ok(!hasAggregateColumns(withoutAggregates));
   });
 
+  test("isValidAggregateFunction should validate supported functions", () => {
+    const funcs = ["COUNT", "SUM", "AVG", "MIN", "MAX", "ARRAY_AGG", "STRING_AGG"];
+
+    funcs.forEach((f) => {
+      assert.ok(isValidAggregateFunction(f));
+    });
+
+    assert.ok(!isValidAggregateFunction("INVALID"));
+  });
+
   test("getReferencedColumns should extract column names", () => {
     const selectClause = createSelectClause([
       createColumnSelection("id"),
@@ -380,6 +391,16 @@ describe("SelectColumn Validation", () => {
     const result = validateSelectColumn(countWithoutColumn);
 
     assert.strictEqual(result.length, 0);
+  });
+
+  test("validateSelectColumn should reject invalid aggregate function", () => {
+    const invalidAgg = {
+      type: "aggregate",
+      aggregateFunction: "INVALID",
+    } as unknown as SelectColumn;
+    const result = validateSelectColumn(invalidAgg);
+
+    assert.ok(result.some((e) => e.includes("Invalid aggregate function")));
   });
 });
 
