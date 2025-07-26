@@ -20,10 +20,14 @@ import type {
   ValidSelectColumn,
 } from "./select-types.js";
 import {
+  addLimitParameter,
+  addOffsetParameter,
   createGroupByClause,
   validateGroupByClause,
   validateGroupByColumns,
   validateHavingClause,
+  validateLimitValue,
+  validateOffsetValue,
 } from "./select-utils.js";
 import { generateSelectSQL } from "./sql-generation.js";
 import { createTableReference } from "./table-utils.js";
@@ -683,21 +687,35 @@ const createSelectWithState = <T extends SchemaConstraint = SchemaConstraint>(
     },
 
     limit(count: number): SelectQueryBuilder<T> {
+      const validation = validateLimitValue(count);
+      if (!validation.success) {
+        throw new Error(validation.error.message);
+      }
+
+      const [newParameters] = addLimitParameter(builder._parameters, validation.data);
+
       const newQuery: SelectQuery = {
         ...builder._query,
-        limit: count,
+        limit: validation.data,
       };
 
-      return createSelectWithState(newQuery, builder._parameters, builder._schema);
+      return createSelectWithState(newQuery, newParameters, builder._schema);
     },
 
     offset(count: number): SelectQueryBuilder<T> {
+      const validation = validateOffsetValue(count);
+      if (!validation.success) {
+        throw new Error(validation.error.message);
+      }
+
+      const [newParameters] = addOffsetParameter(builder._parameters, validation.data);
+
       const newQuery: SelectQuery = {
         ...builder._query,
-        offset: count,
+        offset: validation.data,
       };
 
-      return createSelectWithState(newQuery, builder._parameters, builder._schema);
+      return createSelectWithState(newQuery, newParameters, builder._schema);
     },
 
     build(): QueryResult {
