@@ -54,7 +54,7 @@ export interface TableReference {
 /**
  * JOIN types supported by Cloud Spanner
  */
-export type JoinType = "INNER" | "LEFT" | "RIGHT" | "FULL";
+export type JoinType = "INNER" | "LEFT" | "RIGHT" | "FULL" | "CROSS" | "NATURAL";
 
 /**
  * JOIN clause representation

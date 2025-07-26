@@ -270,6 +270,53 @@ describe("SELECT Query Builder Foundation", () => {
       assert.strictEqual(builder._query.joins[0].type, "FULL");
       assert.strictEqual(builder._query.joins[0].table.alias, "o");
     });
+
+    it("should support crossJoin method", () => {
+      const builder = createSelect<User>().from("users").crossJoin({ table: "orders", alias: "o" });
+
+      assert.ok(builder);
+      assert.strictEqual(builder._query.joins.length, 1);
+      assert.strictEqual(builder._query.joins[0].type, "CROSS");
+      assert.strictEqual(builder._query.joins[0].table.alias, "o");
+    });
+
+    it("should support naturalJoin method", () => {
+      const builder = createSelect<User>()
+        .from("users")
+        .naturalJoin({ table: "orders", alias: "o" });
+
+      assert.ok(builder);
+      assert.strictEqual(builder._query.joins.length, 1);
+      assert.strictEqual(builder._query.joins[0].type, "NATURAL");
+      assert.strictEqual(builder._query.joins[0].table.alias, "o");
+    });
+
+    it("should support multiple joins", () => {
+      const builder = createSelect<User>()
+        .from("users")
+        .innerJoin({
+          table: "orders",
+          alias: "o",
+          condition: (_u, _o) =>
+            ({
+              _conditions: { operator: "AND", conditions: [] },
+              _parameters: { parameters: {}, counter: 0 },
+            }) as any,
+        })
+        .leftJoin({
+          table: "payments",
+          alias: "p",
+          condition: (_u, _p) =>
+            ({
+              _conditions: { operator: "AND", conditions: [] },
+              _parameters: { parameters: {}, counter: 0 },
+            }) as any,
+        });
+
+      assert.strictEqual(builder._query.joins.length, 2);
+      assert.strictEqual(builder._query.joins[0].type, "INNER");
+      assert.strictEqual(builder._query.joins[1].type, "LEFT");
+    });
   });
 
   describe("GROUP BY and HAVING", () => {

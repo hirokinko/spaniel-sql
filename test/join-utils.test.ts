@@ -24,4 +24,16 @@ describe("JOIN Utilities", () => {
     const invalid = validateJoinClause(bad);
     assert.ok(!invalid.valid);
   });
+
+  it("should allow cross join without condition", () => {
+    const clause = createJoinClause("CROSS", { name: "orders" }, { type: "and", conditions: [] });
+    const valid = validateJoinClause(clause);
+    assert.ok(valid.valid);
+  });
+
+  it("should allow natural join without condition", () => {
+    const clause = createJoinClause("NATURAL", { name: "orders" }, { type: "and", conditions: [] });
+    const valid = validateJoinClause(clause);
+    assert.ok(valid.valid);
+  });
 });
