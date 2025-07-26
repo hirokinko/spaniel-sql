@@ -197,6 +197,16 @@ describe("SELECT WHERE Integration", () => {
       assert.ok(builder._query.orderBy);
     });
 
+    it("should work with WHERE and ORDER BY expressions", () => {
+      const builder = createSelect<User>()
+        .from("users")
+        .where((w) => w.eq("active", true))
+        .orderByExpression("LENGTH(name)", "DESC");
+
+      assert.ok(builder._query.where);
+      assert.strictEqual(builder._query.orderBy?.columns[0].expression, "LENGTH(name)");
+    });
+
     it("should work with WHERE and LIMIT/OFFSET", () => {
       const builder = createSelect<User>()
         .from("users")

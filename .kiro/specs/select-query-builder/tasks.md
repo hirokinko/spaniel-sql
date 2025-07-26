@@ -117,7 +117,7 @@
     - Write unit tests for aggregate conditions in HAVING
     - _Requirements: 5.2, 5.3, 5.4_
 
-- [ ] 8. Implement ORDER BY clause
+- [x] 8. Implement ORDER BY clause
 
   - [x] 8.1 Create ORDER BY types and utilities
 
@@ -127,7 +127,7 @@
     - Write unit tests for ORDER BY types and utilities
     - _Requirements: 6.1, 6.2, 6.3_
 
-  - [ ] 8.2 Implement orderBy method with multiple column support
+  - [x] 8.2 Implement orderBy method with multiple column support
     - Write orderBy method that accepts column and direction
     - Support multiple column sorting with proper precedence
     - Implement expression-based ordering support

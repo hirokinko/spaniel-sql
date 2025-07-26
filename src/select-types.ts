@@ -77,7 +77,8 @@ export interface GroupByClause {
  * ORDER BY column specification
  */
 export interface OrderByColumn {
-  column: string;
+  column?: string;
+  expression?: string;
   direction: "ASC" | "DESC";
   nullsFirst?: boolean;
 }
