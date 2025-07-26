@@ -245,7 +245,10 @@ describe("SELECT WHERE Integration", () => {
     it("should integrate WHERE with INNER JOIN", () => {
       const builder = createSelect<User>()
         .from("users")
-        .innerJoin("orders", (_u, _o) => createWhere().eq("id", 1))
+        .innerJoin({
+          table: "orders",
+          condition: (_u, _o) => createWhere().eq("id", 1),
+        })
         .where((w) => w.eq("active", true));
 
       assert.ok(builder._query.joins);
@@ -262,7 +265,10 @@ describe("SELECT WHERE Integration", () => {
 
       const builder = createSelect<User>()
         .from("users")
-        .innerJoin("orders", (_u, _o) => createWhere<User & Order>().eq("user_id", 1))
+        .innerJoin({
+          table: "orders",
+          condition: (_u, _o) => createWhere<User & Order>().eq("user_id", 1),
+        })
         .where((w) => w.eq("active", true).gt("age", 18));
 
       const result = builder.build();

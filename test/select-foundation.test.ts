@@ -197,37 +197,78 @@ describe("SELECT Query Builder Foundation", () => {
     it("should support innerJoin method", () => {
       const builder = createSelect<User>()
         .from("users")
-        .innerJoin(
-          "orders",
-          (_u, _o) =>
-            // This is a placeholder - actual join condition building will be implemented later
+        .innerJoin({
+          table: "orders",
+          alias: "o",
+          condition: (_u, _o) =>
             ({
               _conditions: { operator: "AND", conditions: [] },
               _parameters: { parameters: {}, counter: 0 },
-            }) as any
-        );
+            }) as any,
+        });
 
       assert.ok(builder);
       assert.strictEqual(builder._query.joins.length, 1);
       assert.strictEqual(builder._query.joins[0].type, "INNER");
       assert.strictEqual(builder._query.joins[0].table.name, "orders");
+      assert.strictEqual(builder._query.joins[0].table.alias, "o");
     });
 
     it("should support leftJoin method", () => {
       const builder = createSelect<User>()
         .from("users")
-        .leftJoin(
-          "orders",
-          (_u, _o) =>
+        .leftJoin({
+          table: "orders",
+          alias: "o",
+          condition: (_u, _o) =>
             ({
               _conditions: { operator: "AND", conditions: [] },
               _parameters: { parameters: {}, counter: 0 },
-            }) as any
-        );
+            }) as any,
+        });
 
       assert.ok(builder);
       assert.strictEqual(builder._query.joins.length, 1);
       assert.strictEqual(builder._query.joins[0].type, "LEFT");
+      assert.strictEqual(builder._query.joins[0].table.alias, "o");
+    });
+
+    it("should support rightJoin method", () => {
+      const builder = createSelect<User>()
+        .from("users")
+        .rightJoin({
+          table: "orders",
+          alias: "o",
+          condition: (_u, _o) =>
+            ({
+              _conditions: { operator: "AND", conditions: [] },
+              _parameters: { parameters: {}, counter: 0 },
+            }) as any,
+        });
+
+      assert.ok(builder);
+      assert.strictEqual(builder._query.joins.length, 1);
+      assert.strictEqual(builder._query.joins[0].type, "RIGHT");
+      assert.strictEqual(builder._query.joins[0].table.alias, "o");
+    });
+
+    it("should support fullJoin method", () => {
+      const builder = createSelect<User>()
+        .from("users")
+        .fullJoin({
+          table: "orders",
+          alias: "o",
+          condition: (_u, _o) =>
+            ({
+              _conditions: { operator: "AND", conditions: [] },
+              _parameters: { parameters: {}, counter: 0 },
+            }) as any,
+        });
+
+      assert.ok(builder);
+      assert.strictEqual(builder._query.joins.length, 1);
+      assert.strictEqual(builder._query.joins[0].type, "FULL");
+      assert.strictEqual(builder._query.joins[0].table.alias, "o");
     });
   });
 
