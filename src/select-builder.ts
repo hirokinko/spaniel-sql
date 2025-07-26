@@ -23,6 +23,7 @@ import {
   createGroupByClause,
   validateGroupByClause,
   validateGroupByColumns,
+  validateHavingClause,
 } from "./select-utils.js";
 import { generateSelectSQL } from "./sql-generation.js";
 import { createTableReference } from "./table-utils.js";
@@ -622,6 +623,15 @@ const createSelectWithState = <T extends SchemaConstraint = SchemaConstraint>(
         ...builder._query,
         having: conditionBuilder._conditions,
       };
+
+      const validation = validateHavingClause({
+        groupBy: newQuery.groupBy,
+        having: newQuery.having,
+      } as Pick<SelectQuery, "groupBy" | "having">);
+
+      if (!validation.valid) {
+        throw new Error(validation.errors.join("; "));
+      }
 
       // Merge parameters from the HAVING condition
       const newParameters = {

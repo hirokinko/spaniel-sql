@@ -340,3 +340,22 @@ export function validateGroupByColumns(query: Pick<SelectQuery, "select" | "grou
 
   return { valid: errors.length === 0, errors };
 }
+
+/**
+ * Validates HAVING clause usage
+ * Ensures HAVING is only used when GROUP BY is present
+ */
+export function validateHavingClause(query: Pick<SelectQuery, "groupBy" | "having">): {
+  valid: boolean;
+  errors: string[];
+} {
+  if (!query.having) {
+    return { valid: true, errors: [] };
+  }
+
+  if (!query.groupBy) {
+    return { valid: false, errors: ["HAVING clause requires GROUP BY"] };
+  }
+
+  return { valid: true, errors: [] };
+}

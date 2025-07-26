@@ -100,7 +100,7 @@
     - Write unit tests for GROUP BY functionality and validation
     - _Requirements: 4.1, 4.2, 4.4_
 
-- [ ] 7. Implement HAVING clause
+- [x] 7. Implement HAVING clause
 
   - [x] 7.1 Create HAVING clause integration with WHERE builder
 
@@ -110,7 +110,7 @@
     - Write unit tests for HAVING clause basic functionality
     - _Requirements: 5.1, 5.2_
 
-  - [ ] 7.2 Implement HAVING with aggregate function support
+  - [x] 7.2 Implement HAVING with aggregate function support
     - Enable aggregate functions in HAVING conditions
     - Implement proper validation for HAVING without GROUP BY
     - Support complex HAVING conditions with logical operators
