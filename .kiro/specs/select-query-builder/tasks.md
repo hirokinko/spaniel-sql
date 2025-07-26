@@ -119,7 +119,7 @@
 
 - [ ] 8. Implement ORDER BY clause
 
-  - [ ] 8.1 Create ORDER BY types and utilities
+  - [x] 8.1 Create ORDER BY types and utilities
 
     - Define OrderByColumn interface for sort specification
     - Implement OrderByClause type for multiple column sorting

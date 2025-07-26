@@ -7,6 +7,8 @@ import {
   AGGREGATE_FUNCTIONS,
   type AggregateFunction,
   type GroupByClause,
+  type OrderByClause,
+  type OrderByColumn,
   type SelectClause,
   type SelectColumn,
   type SelectQuery,
@@ -358,4 +360,67 @@ export function validateHavingClause(query: Pick<SelectQuery, "groupBy" | "havin
   }
 
   return { valid: true, errors: [] };
+}
+
+/**
+ * Checks if a sort direction value is valid
+ */
+export function isValidSortDirection(direction: string): direction is "ASC" | "DESC" {
+  return direction === "ASC" || direction === "DESC";
+}
+
+/**
+ * Creates an ORDER BY column specification
+ */
+export function createOrderByColumn(
+  column: string,
+  direction: "ASC" | "DESC" = "ASC",
+  nullsFirst?: boolean
+): OrderByColumn {
+  const result: OrderByColumn = { column, direction };
+  if (nullsFirst !== undefined) {
+    result.nullsFirst = nullsFirst;
+  }
+  return result;
+}
+
+/**
+ * Creates an ORDER BY clause from an array of columns
+ */
+export function createOrderByClause(columns: OrderByColumn[]): OrderByClause {
+  return { columns };
+}
+
+/**
+ * Validates an ORDER BY column specification
+ */
+export function validateOrderByColumn(column: OrderByColumn): string[] {
+  const errors: string[] = [];
+  if (!column.column) {
+    errors.push("ORDER BY column must specify a column name");
+  }
+  if (!isValidSortDirection(column.direction)) {
+    errors.push(`Invalid sort direction: ${column.direction}`);
+  }
+  return errors;
+}
+
+/**
+ * Validates an ORDER BY clause
+ */
+export function validateOrderByClause(clause: OrderByClause): { valid: boolean; errors: string[] } {
+  const errors: string[] = [];
+
+  if (clause.columns.length === 0) {
+    errors.push("ORDER BY clause must specify at least one column");
+  }
+
+  for (const [index, col] of clause.columns.entries()) {
+    const colErrors = validateOrderByColumn(col);
+    if (colErrors.length > 0) {
+      errors.push(`Column ${index + 1}: ${colErrors.join(", ")}`);
+    }
+  }
+
+  return { valid: errors.length === 0, errors };
 }
