@@ -12,7 +12,7 @@ import { createWhere, createWhereWithParameters, type WhereBuilder } from "./whe
  */
 // Allow arbitrary expressions in HAVING by intersecting the provided schema
 // with a generic record so that any string key is permitted
-export type HavingBuilder<T extends SchemaConstraint = SchemaConstraint> = WhereBuilder<T>;
+export type HavingBuilder<T extends SchemaConstraint = SchemaConstraint> = WhereBuilder<T> & Record<string, any>;
 
 /**
  * Creates a HavingBuilder with empty state
