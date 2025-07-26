@@ -32,5 +32,5 @@ export const createHavingWithParameters = <T extends SchemaConstraint = SchemaCo
   conditions: ConditionGroup,
   parameters: ParameterManager
 ): HavingBuilder<T> => {
-  return createWhereWithParameters<T & SchemaConstraint>(conditions, parameters);
+  return createWhereWithParameters<T>(conditions, parameters);
 };
