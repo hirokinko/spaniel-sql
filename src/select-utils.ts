@@ -281,8 +281,8 @@ export function setSelectDistinct(selectClause: SelectClause, distinct: boolean)
  */
 export function createGroupByClause(columns: string[], expressions: string[] = []): GroupByClause {
   return {
-    columns: [...columns],
-    expressions: [...expressions],
+    columns,
+    expressions,
   };
 }
 
