@@ -119,6 +119,7 @@ export type SelectQueryBuilder<T extends SchemaConstraint = SchemaConstraint> = 
     column: ValidSelectColumn<T, K>,
     direction?: "ASC" | "DESC"
   ): SelectQueryBuilder<T>;
+  orderByExpression(expression: string, direction?: "ASC" | "DESC"): SelectQueryBuilder<T>;
 
   // Pagination methods
   limit(count: number): SelectQueryBuilder<T>;
@@ -654,6 +655,22 @@ const createSelectWithState = <T extends SchemaConstraint = SchemaConstraint>(
         column: String(column),
         direction,
       };
+
+      const newQuery: SelectQuery = {
+        ...builder._query,
+        orderBy: {
+          columns: [...(builder._query.orderBy?.columns || []), orderByColumn],
+        },
+      };
+
+      return createSelectWithState(newQuery, builder._parameters, builder._schema);
+    },
+
+    orderByExpression(
+      expression: string,
+      direction: "ASC" | "DESC" = "ASC"
+    ): SelectQueryBuilder<T> {
+      const orderByColumn: OrderByColumn = { expression, direction };
 
       const newQuery: SelectQuery = {
         ...builder._query,

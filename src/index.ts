@@ -95,6 +95,7 @@ export {
   createGroupByClause,
   createOrderByClause,
   createOrderByColumn,
+  createOrderByExpression,
   createSelectAllClause,
   createSelectClause,
   getReferencedColumns,

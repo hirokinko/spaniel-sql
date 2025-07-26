@@ -385,6 +385,21 @@ export function createOrderByColumn(
 }
 
 /**
+ * Creates an ORDER BY expression specification
+ */
+export function createOrderByExpression(
+  expression: string,
+  direction: "ASC" | "DESC" = "ASC",
+  nullsFirst?: boolean
+): OrderByColumn {
+  const result: OrderByColumn = { expression, direction };
+  if (nullsFirst !== undefined) {
+    result.nullsFirst = nullsFirst;
+  }
+  return result;
+}
+
+/**
  * Creates an ORDER BY clause from an array of columns
  */
 export function createOrderByClause(columns: OrderByColumn[]): OrderByClause {
@@ -396,8 +411,8 @@ export function createOrderByClause(columns: OrderByColumn[]): OrderByClause {
  */
 export function validateOrderByColumn(column: OrderByColumn): string[] {
   const errors: string[] = [];
-  if (!column.column) {
-    errors.push("ORDER BY column must specify a column name");
+  if (!column.column && !column.expression) {
+    errors.push("ORDER BY column must specify a column name or expression");
   }
   if (!isValidSortDirection(column.direction)) {
     errors.push(`Invalid sort direction: ${column.direction}`);

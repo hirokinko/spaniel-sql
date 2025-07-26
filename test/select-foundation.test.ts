@@ -262,6 +262,25 @@ describe("SELECT Query Builder Foundation", () => {
       assert.strictEqual(builder._query.orderBy.columns[0].direction, "ASC");
     });
 
+    it("should support multiple orderBy calls", () => {
+      const builder = createSelect<User>()
+        .from("users")
+        .orderBy("name", "ASC")
+        .orderBy("email", "DESC");
+
+      assert.strictEqual(builder._query.orderBy?.columns.length, 2);
+      assert.strictEqual(builder._query.orderBy?.columns[0].column, "name");
+      assert.strictEqual(builder._query.orderBy?.columns[1].column, "email");
+      assert.strictEqual(builder._query.orderBy?.columns[1].direction, "DESC");
+    });
+
+    it("should support orderBy with expressions", () => {
+      const builder = createSelect<User>().from("users").orderByExpression("LENGTH(name)", "DESC");
+
+      assert.strictEqual(builder._query.orderBy?.columns[0].expression, "LENGTH(name)");
+      assert.strictEqual(builder._query.orderBy?.columns[0].direction, "DESC");
+    });
+
     it("should support limit and offset methods", () => {
       const builder = createSelect<User>().from("users").limit(10).offset(20);
 
