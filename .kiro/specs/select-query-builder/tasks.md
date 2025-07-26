@@ -134,7 +134,7 @@
     - Write unit tests for ORDER BY functionality
     - _Requirements: 6.1, 6.2, 6.3, 6.4_
 
-- [ ] 9. Implement LIMIT and OFFSET clauses
+- [x] 9. Implement LIMIT and OFFSET clauses
 
   - [x] 9.1 Create pagination types and validation
 
@@ -153,7 +153,7 @@
 
 - [ ] 10. Implement JOIN operations
 
-  - [ ] 10.1 Create JOIN types and condition handling
+  - [x] 10.1 Create JOIN types and condition handling
 
     - Define JoinType enum and JoinClause interface
     - Implement JoinCondition type for join condition specification

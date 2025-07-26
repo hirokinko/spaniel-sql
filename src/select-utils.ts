@@ -2,6 +2,7 @@
  * Utility functions for SELECT query column selection and processing
  */
 
+import type { ConditionGroup } from "./conditions.js";
 import type { SchemaConstraint } from "./core-types.js";
 import { createFailure, createQueryBuilderError, createSuccess, type Result } from "./errors.js";
 import { addParameter, type ParameterManager } from "./parameter-manager.js";
@@ -9,12 +10,16 @@ import {
   AGGREGATE_FUNCTIONS,
   type AggregateFunction,
   type GroupByClause,
+  type JoinClause,
+  type JoinType,
   type OrderByClause,
   type OrderByColumn,
   type SelectClause,
   type SelectColumn,
   type SelectQuery,
+  type TableReference,
 } from "./select-types.js";
+import { validateTableAlias, validateTableName } from "./table-utils.js";
 
 /**
  * Creates a column selection for a specific column name
@@ -485,3 +490,50 @@ export const addOffsetParameter = (
   manager: ParameterManager,
   value: number
 ): [ParameterManager, string] => addParameter(manager, value);
+
+/**
+ * Creates a JOIN clause
+ */
+export function createJoinClause(
+  type: JoinType,
+  table: TableReference,
+  condition: ConditionGroup
+): JoinClause {
+  return { type, table, condition };
+}
+
+/**
+ * Validates a JOIN clause
+ */
+export function validateJoinClause(clause: JoinClause): {
+  valid: boolean;
+  errors: string[];
+} {
+  const errors: string[] = [];
+
+  // Validate join type
+  const validTypes: JoinType[] = ["INNER", "LEFT", "RIGHT", "FULL"];
+  if (!validTypes.includes(clause.type)) {
+    errors.push(`Invalid join type: ${clause.type}`);
+  }
+
+  // Validate table name and alias
+  const nameResult = validateTableName(clause.table.name);
+  if (!nameResult.success) {
+    errors.push(nameResult.error.message);
+  }
+
+  if (clause.table.alias !== undefined) {
+    const aliasResult = validateTableAlias(clause.table.alias);
+    if (!aliasResult.success) {
+      errors.push(aliasResult.error.message);
+    }
+  }
+
+  // Validate join condition has at least one condition
+  if (clause.condition.conditions.length === 0) {
+    errors.push("JOIN condition must have at least one condition");
+  }
+
+  return { valid: errors.length === 0, errors };
+}
