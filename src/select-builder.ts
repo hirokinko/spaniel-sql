@@ -3,6 +3,8 @@
  */
 
 import type { QueryResult, SchemaConstraint } from "./core-types.js";
+import type { HavingBuilder } from "./having-builder.js";
+import { createHaving } from "./having-builder.js";
 import type { ParameterManager } from "./parameter-manager.js";
 import { addParameter, createParameterManager } from "./parameter-manager.js";
 import type {
@@ -25,7 +27,7 @@ import {
 import { generateSelectSQL } from "./sql-generation.js";
 import { createTableReference } from "./table-utils.js";
 import type { WhereBuilder } from "./where-builder.js";
-import { createWhere, createWhereWithParameters } from "./where-builder.js";
+import { createWhereWithParameters } from "./where-builder.js";
 
 /**
  * Join condition builder function type
@@ -109,7 +111,7 @@ export type SelectQueryBuilder<T extends SchemaConstraint = SchemaConstraint> = 
 
   // Grouping methods
   groupBy<K extends keyof T>(...columns: ValidSelectColumn<T, K>[]): SelectQueryBuilder<T>;
-  having(condition: (builder: WhereBuilder<T>) => WhereBuilder<T>): SelectQueryBuilder<T>;
+  having(condition: (builder: HavingBuilder<T>) => HavingBuilder<T>): SelectQueryBuilder<T>;
 
   // Ordering methods
   orderBy<K extends keyof T>(
@@ -612,9 +614,9 @@ const createSelectWithState = <T extends SchemaConstraint = SchemaConstraint>(
       return createSelectWithState(newQuery, builder._parameters, builder._schema);
     },
 
-    having(condition: (builder: WhereBuilder<T>) => WhereBuilder<T>): SelectQueryBuilder<T> {
-      const whereBuilder = createWhere<T>();
-      const conditionBuilder = condition(whereBuilder);
+    having(condition: (builder: HavingBuilder<T>) => HavingBuilder<T>): SelectQueryBuilder<T> {
+      const havingBuilder = createHaving<T>();
+      const conditionBuilder = condition(havingBuilder);
 
       const newQuery: SelectQuery = {
         ...builder._query,
