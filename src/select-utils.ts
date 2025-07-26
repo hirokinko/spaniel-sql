@@ -68,7 +68,7 @@ export function createAggregateSelection(
  */
 export function createSelectClause(columns: SelectColumn[], distinct?: boolean): SelectClause {
   const result: SelectClause = {
-    columns, // Create a copy to maintain immutability
+    columns: [...columns], // Create a copy to maintain immutability
   };
   if (distinct !== undefined) {
     result.distinct = distinct;
@@ -281,8 +281,8 @@ export function setSelectDistinct(selectClause: SelectClause, distinct: boolean)
  */
 export function createGroupByClause(columns: string[], expressions: string[] = []): GroupByClause {
   return {
-    columns,
-    expressions,
+    columns: [...columns],
+    expressions: [...expressions],
   };
 }
 
