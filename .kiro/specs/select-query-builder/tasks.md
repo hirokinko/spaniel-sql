@@ -136,7 +136,7 @@
 
 - [ ] 9. Implement LIMIT and OFFSET clauses
 
-  - [ ] 9.1 Create pagination types and validation
+  - [x] 9.1 Create pagination types and validation
 
     - Define limit and offset value validation logic
     - Implement error handling for invalid pagination values

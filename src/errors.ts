@@ -17,7 +17,8 @@ export type QueryBuilderErrorCode =
   | "EMPTY_CONDITIONS_ARRAY"
   | "MALFORMED_CONDITION"
   | "INVALID_TABLE_NAME"
-  | "INVALID_TABLE_ALIAS";
+  | "INVALID_TABLE_ALIAS"
+  | "INVALID_LIMIT_VALUE";
 
 /**
  * Query builder error type with structured error information

@@ -3,6 +3,8 @@
  */
 
 import type { SchemaConstraint } from "./core-types.js";
+import { createFailure, createQueryBuilderError, createSuccess, type Result } from "./errors.js";
+import { addParameter, type ParameterManager } from "./parameter-manager.js";
 import {
   AGGREGATE_FUNCTIONS,
   type AggregateFunction,
@@ -439,3 +441,47 @@ export function validateOrderByClause(clause: OrderByClause): { valid: boolean; 
 
   return { valid: errors.length === 0, errors };
 }
+
+/**
+ * Validates a LIMIT value. Must be a positive integer.
+ */
+export const validateLimitValue = (value: unknown): Result<number> => {
+  if (typeof value !== "number" || !Number.isInteger(value) || value <= 0) {
+    return createFailure(
+      createQueryBuilderError(`Invalid LIMIT value: ${String(value)}`, "INVALID_LIMIT_VALUE", {
+        providedValue: value,
+      })
+    );
+  }
+  return createSuccess(value);
+};
+
+/**
+ * Validates an OFFSET value. Must be a non-negative integer.
+ */
+export const validateOffsetValue = (value: unknown): Result<number> => {
+  if (typeof value !== "number" || !Number.isInteger(value) || value < 0) {
+    return createFailure(
+      createQueryBuilderError(`Invalid OFFSET value: ${String(value)}`, "INVALID_LIMIT_VALUE", {
+        providedValue: value,
+      })
+    );
+  }
+  return createSuccess(value);
+};
+
+/**
+ * Adds a LIMIT value as a parameter and returns the updated manager.
+ */
+export const addLimitParameter = (
+  manager: ParameterManager,
+  value: number
+): [ParameterManager, string] => addParameter(manager, value);
+
+/**
+ * Adds an OFFSET value as a parameter and returns the updated manager.
+ */
+export const addOffsetParameter = (
+  manager: ParameterManager,
+  value: number
+): [ParameterManager, string] => addParameter(manager, value);
