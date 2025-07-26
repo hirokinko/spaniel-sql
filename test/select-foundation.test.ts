@@ -139,7 +139,7 @@ describe("SELECT Query Builder Foundation", () => {
       assert.strictEqual(builder._query.select.columns[0].expression, "name, @param1");
       assert.strictEqual(builder._parameters.counter, 1);
       assert.strictEqual(Object.hasOwn(builder._parameters.parameters, "param1"), true);
-      assert.strictEqual(builder._parameters.parameters["param1"], ",");
+      assert.strictEqual(builder._parameters.parameters.param1, ",");
     });
   });
 
@@ -287,6 +287,9 @@ describe("SELECT Query Builder Foundation", () => {
       assert.ok(builder);
       assert.strictEqual(builder._query.limit, 10);
       assert.strictEqual(builder._query.offset, 20);
+      assert.strictEqual(builder._parameters.counter, 2);
+      assert.strictEqual(builder._parameters.parameters.param1, 10);
+      assert.strictEqual(builder._parameters.parameters.param2, 20);
     });
   });
 
