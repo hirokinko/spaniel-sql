@@ -462,7 +462,7 @@ export const validateLimitValue = (value: unknown): Result<number> => {
 export const validateOffsetValue = (value: unknown): Result<number> => {
   if (typeof value !== "number" || !Number.isInteger(value) || value < 0) {
     return createFailure(
-      createQueryBuilderError(`Invalid OFFSET value: ${String(value)}`, "INVALID_LIMIT_VALUE", {
+      createQueryBuilderError(`Invalid OFFSET value: ${String(value)}`, "INVALID_OFFSET_VALUE", {
         providedValue: value,
       })
     );
