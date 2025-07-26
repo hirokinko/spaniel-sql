@@ -151,7 +151,7 @@
     - Write unit tests for pagination functionality
     - _Requirements: 7.1, 7.2, 7.3_
 
-- [ ] 10. Implement JOIN operations
+- [x] 10. Implement JOIN operations
 
   - [x] 10.1 Create JOIN types and condition handling
 
@@ -168,7 +168,7 @@
     - Write unit tests for basic JOIN functionality
     - _Requirements: 8.1, 8.2, 8.4, 9.3_
 
-  - [ ] 10.3 Implement advanced JOIN operations
+  - [x] 10.3 Implement advanced JOIN operations
     - Add rightJoin and fullJoin methods
     - Support multiple table joins with proper type merging
     - Implement cross join and natural join variants

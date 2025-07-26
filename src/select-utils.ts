@@ -512,7 +512,7 @@ export function validateJoinClause(clause: JoinClause): {
   const errors: string[] = [];
 
   // Validate join type
-  const validTypes: JoinType[] = ["INNER", "LEFT", "RIGHT", "FULL"];
+  const validTypes: JoinType[] = ["INNER", "LEFT", "RIGHT", "FULL", "CROSS", "NATURAL"];
   if (!validTypes.includes(clause.type)) {
     errors.push(`Invalid join type: ${clause.type}`);
   }
@@ -530,8 +530,12 @@ export function validateJoinClause(clause: JoinClause): {
     }
   }
 
-  // Validate join condition has at least one condition
-  if (clause.condition.conditions.length === 0) {
+  // Validate join condition has at least one condition for joins that require it
+  if (
+    clause.condition.conditions.length === 0 &&
+    clause.type !== "CROSS" &&
+    clause.type !== "NATURAL"
+  ) {
     errors.push("JOIN condition must have at least one condition");
   }
 

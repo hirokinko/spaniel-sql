@@ -113,6 +113,18 @@ export type SelectQueryBuilder<T extends SchemaConstraint = SchemaConstraint> = 
     options: JoinOptions<T, U>
   ): SelectQueryBuilder<Partial<T> & Partial<U>>;
 
+  crossJoin<U extends SchemaConstraint>(options: {
+    table: string;
+    alias?: string;
+    schema?: U;
+  }): SelectQueryBuilder<JoinedTables<T, U>>;
+
+  naturalJoin<U extends SchemaConstraint>(options: {
+    table: string;
+    alias?: string;
+    schema?: U;
+  }): SelectQueryBuilder<JoinedTables<T, U>>;
+
   // WHERE integration
   where(condition: (builder: WhereBuilder<T>) => WhereBuilder<T>): SelectQueryBuilder<T>;
 
@@ -555,6 +567,64 @@ const createSelectWithState = <T extends SchemaConstraint = SchemaConstraint>(
       };
 
       return createSelectWithState(newQuery, newParameters, joinedSchema);
+    },
+
+    crossJoin<U extends SchemaConstraint>(options: {
+      table: string;
+      alias?: string;
+      schema?: U;
+    }): SelectQueryBuilder<JoinedTables<T, U>> {
+      const { table, alias, schema } = options;
+      const leftSchema = builder._schema;
+      const rightSchema = schema || ({} as U);
+      const joinedSchema = { ...leftSchema, ...rightSchema } as T & U;
+
+      const tableRefResult = createTableReference(table, alias, rightSchema);
+      if (!tableRefResult.success) {
+        throw new Error(tableRefResult.error.message);
+      }
+
+      const joinClause: JoinClause = {
+        type: "CROSS",
+        table: tableRefResult.data,
+        condition: { type: "and", conditions: [] },
+      };
+
+      const newQuery: SelectQuery = {
+        ...builder._query,
+        joins: [...builder._query.joins, joinClause],
+      };
+
+      return createSelectWithState(newQuery, builder._parameters, joinedSchema);
+    },
+
+    naturalJoin<U extends SchemaConstraint>(options: {
+      table: string;
+      alias?: string;
+      schema?: U;
+    }): SelectQueryBuilder<JoinedTables<T, U>> {
+      const { table, alias, schema } = options;
+      const leftSchema = builder._schema;
+      const rightSchema = schema || ({} as U);
+      const joinedSchema = { ...leftSchema, ...rightSchema } as T & U;
+
+      const tableRefResult = createTableReference(table, alias, rightSchema);
+      if (!tableRefResult.success) {
+        throw new Error(tableRefResult.error.message);
+      }
+
+      const joinClause: JoinClause = {
+        type: "NATURAL",
+        table: tableRefResult.data,
+        condition: { type: "and", conditions: [] },
+      };
+
+      const newQuery: SelectQuery = {
+        ...builder._query,
+        joins: [...builder._query.joins, joinClause],
+      };
+
+      return createSelectWithState(newQuery, builder._parameters, joinedSchema);
     },
 
     where(condition: (builder: WhereBuilder<T>) => WhereBuilder<T>): SelectQueryBuilder<T> {
