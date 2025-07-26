@@ -433,5 +433,9 @@ export const generateSelectSQL = (query: SelectQuery): string => {
     parts.push(generateGroupByClause(query.groupBy));
   }
 
+  if (query.having && query.having.conditions.length > 0) {
+    parts.push(`HAVING ${generateConditionSql(query.having)}`);
+  }
+
   return parts.join(" ");
 };

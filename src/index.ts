@@ -104,6 +104,7 @@ export {
   setSelectDistinct,
   validateGroupByClause,
   validateGroupByColumns,
+  validateHavingClause,
   validateSelectClause,
   validateSelectColumn,
   validateSelectColumns,
