@@ -12,16 +12,13 @@ import { createWhere, createWhereWithParameters, type WhereBuilder } from "./whe
  */
 // Allow arbitrary expressions in HAVING by intersecting the provided schema
 // with a generic record so that any string key is permitted
-export type HavingBuilder<T extends SchemaConstraint = SchemaConstraint> = WhereBuilder<
-  T & SchemaConstraint
->;
+export type HavingBuilder<T extends SchemaConstraint = SchemaConstraint> = WhereBuilder<T>;
 
 /**
  * Creates a HavingBuilder with empty state
  */
-export const createHaving = <T extends SchemaConstraint = SchemaConstraint>(): HavingBuilder<T> => {
-  return createWhere<T & SchemaConstraint>();
-};
+export const createHaving = <T extends SchemaConstraint = SchemaConstraint>(): HavingBuilder<T> =>
+  createWhere<T>();
 
 /**
  * Creates a HavingBuilder with specific state
