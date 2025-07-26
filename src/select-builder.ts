@@ -43,6 +43,16 @@ export type JoinCondition<T extends SchemaConstraint, U extends SchemaConstraint
 ) => WhereBuilder<T & U>;
 
 /**
+ * Options object accepted by JOIN methods
+ */
+export interface JoinOptions<T extends SchemaConstraint, U extends SchemaConstraint> {
+  table: string;
+  alias?: string;
+  schema?: U;
+  condition: JoinCondition<T, U>;
+}
+
+/**
  * SelectQueryBuilder type - immutable object with fluent interface methods
  * Generic parameter T represents the current result schema for type safety
  */
@@ -88,27 +98,19 @@ export type SelectQueryBuilder<T extends SchemaConstraint = SchemaConstraint> = 
 
   // JOIN methods
   innerJoin<U extends SchemaConstraint>(
-    table: string,
-    condition: JoinCondition<T, U>,
-    schema?: U
+    options: JoinOptions<T, U>
   ): SelectQueryBuilder<JoinedTables<T, U>>;
 
   leftJoin<U extends SchemaConstraint>(
-    table: string,
-    condition: JoinCondition<T, U>,
-    schema?: U
+    options: JoinOptions<T, U>
   ): SelectQueryBuilder<LeftJoinedTables<T, U>>;
 
   rightJoin<U extends SchemaConstraint>(
-    table: string,
-    condition: JoinCondition<T, U>,
-    schema?: U
+    options: JoinOptions<T, U>
   ): SelectQueryBuilder<LeftJoinedTables<U, T>>;
 
   fullJoin<U extends SchemaConstraint>(
-    table: string,
-    condition: JoinCondition<T, U>,
-    schema?: U
+    options: JoinOptions<T, U>
   ): SelectQueryBuilder<Partial<T> & Partial<U>>;
 
   // WHERE integration
@@ -394,10 +396,10 @@ const createSelectWithState = <T extends SchemaConstraint = SchemaConstraint>(
     },
 
     innerJoin<U extends SchemaConstraint>(
-      table: string,
-      condition: JoinCondition<T, U>,
-      schema?: U
+      options: JoinOptions<T, U>
     ): SelectQueryBuilder<JoinedTables<T, U>> {
+      const { table, alias, schema, condition } = options;
+
       // Create a temporary WHERE builder to get the condition
       const leftSchema = builder._schema;
       const rightSchema = schema || ({} as U);
@@ -405,12 +407,14 @@ const createSelectWithState = <T extends SchemaConstraint = SchemaConstraint>(
 
       const conditionBuilder = condition(leftSchema, rightSchema);
 
+      const tableRefResult = createTableReference(table, alias, rightSchema);
+      if (!tableRefResult.success) {
+        throw new Error(tableRefResult.error.message);
+      }
+
       const joinClause: JoinClause = {
         type: "INNER",
-        table: {
-          name: table,
-          schema: rightSchema,
-        },
+        table: tableRefResult.data,
         condition: conditionBuilder._conditions,
       };
 
@@ -433,10 +437,10 @@ const createSelectWithState = <T extends SchemaConstraint = SchemaConstraint>(
     },
 
     leftJoin<U extends SchemaConstraint>(
-      table: string,
-      condition: JoinCondition<T, U>,
-      schema?: U
+      options: JoinOptions<T, U>
     ): SelectQueryBuilder<LeftJoinedTables<T, U>> {
+      const { table, alias, schema, condition } = options;
+
       // Create a temporary WHERE builder to get the condition
       const leftSchema = builder._schema;
       const rightSchema = schema || ({} as U);
@@ -444,12 +448,14 @@ const createSelectWithState = <T extends SchemaConstraint = SchemaConstraint>(
 
       const conditionBuilder = condition(leftSchema, rightSchema);
 
+      const tableRefResult = createTableReference(table, alias, rightSchema);
+      if (!tableRefResult.success) {
+        throw new Error(tableRefResult.error.message);
+      }
+
       const joinClause: JoinClause = {
         type: "LEFT",
-        table: {
-          name: table,
-          schema: rightSchema,
-        },
+        table: tableRefResult.data,
         condition: conditionBuilder._conditions,
       };
 
@@ -472,10 +478,9 @@ const createSelectWithState = <T extends SchemaConstraint = SchemaConstraint>(
     },
 
     rightJoin<U extends SchemaConstraint>(
-      table: string,
-      condition: JoinCondition<T, U>,
-      schema?: U
+      options: JoinOptions<T, U>
     ): SelectQueryBuilder<LeftJoinedTables<U, T>> {
+      const { table, alias, schema, condition } = options;
       // Create a temporary WHERE builder to get the condition
       const leftSchema = builder._schema;
       const rightSchema = schema || ({} as U);
@@ -483,12 +488,14 @@ const createSelectWithState = <T extends SchemaConstraint = SchemaConstraint>(
 
       const conditionBuilder = condition(leftSchema, rightSchema);
 
+      const tableRefResult = createTableReference(table, alias, rightSchema);
+      if (!tableRefResult.success) {
+        throw new Error(tableRefResult.error.message);
+      }
+
       const joinClause: JoinClause = {
         type: "RIGHT",
-        table: {
-          name: table,
-          schema: rightSchema,
-        },
+        table: tableRefResult.data,
         condition: conditionBuilder._conditions,
       };
 
@@ -511,10 +518,9 @@ const createSelectWithState = <T extends SchemaConstraint = SchemaConstraint>(
     },
 
     fullJoin<U extends SchemaConstraint>(
-      table: string,
-      condition: JoinCondition<T, U>,
-      schema?: U
+      options: JoinOptions<T, U>
     ): SelectQueryBuilder<Partial<T> & Partial<U>> {
+      const { table, alias, schema, condition } = options;
       // Create a temporary WHERE builder to get the condition
       const leftSchema = builder._schema;
       const rightSchema = schema || ({} as U);
@@ -522,12 +528,14 @@ const createSelectWithState = <T extends SchemaConstraint = SchemaConstraint>(
 
       const conditionBuilder = condition(leftSchema, rightSchema);
 
+      const tableRefResult = createTableReference(table, alias, rightSchema);
+      if (!tableRefResult.success) {
+        throw new Error(tableRefResult.error.message);
+      }
+
       const joinClause: JoinClause = {
         type: "FULL",
-        table: {
-          name: table,
-          schema: rightSchema,
-        },
+        table: tableRefResult.data,
         condition: conditionBuilder._conditions,
       };
 

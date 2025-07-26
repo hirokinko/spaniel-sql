@@ -161,7 +161,7 @@
     - Write unit tests for JOIN types and utilities
     - _Requirements: 8.1, 8.2, 8.4_
 
-  - [ ] 10.2 Implement basic JOIN methods (innerJoin, leftJoin)
+  - [x] 10.2 Implement basic JOIN methods (innerJoin, leftJoin)
     - Write innerJoin method with condition builder integration
     - Implement leftJoin method with proper type handling for nullable columns
     - Support table aliases in JOIN operations
