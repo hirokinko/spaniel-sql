@@ -52,6 +52,15 @@ export interface TableReference {
 }
 
 /**
+ * UNNEST reference for JOIN clauses
+ */
+export interface UnnestReference {
+  unnest: string;
+  alias: string;
+  schema?: SchemaConstraint;
+}
+
+/**
  * JOIN types supported by Cloud Spanner
  */
 export type JoinType = "INNER" | "LEFT" | "RIGHT" | "FULL" | "CROSS" | "NATURAL";
@@ -61,7 +70,7 @@ export type JoinType = "INNER" | "LEFT" | "RIGHT" | "FULL" | "CROSS" | "NATURAL"
  */
 export interface JoinClause {
   type: JoinType;
-  table: TableReference;
+  table: TableReference | UnnestReference;
   condition: ConditionGroup;
 }
 

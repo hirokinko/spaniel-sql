@@ -24,6 +24,7 @@ import {
   type SelectColumn,
   type SelectQuery,
   type TableReference,
+  type UnnestReference,
 } from "./select-types.js";
 import { validateTableAlias, validateTableName } from "./table-utils.js";
 
@@ -502,7 +503,7 @@ export const addOffsetParameter = (
  */
 export function createJoinClause(
   type: JoinType,
-  table: TableReference,
+  table: TableReference | UnnestReference,
   condition: ConditionGroup
 ): JoinClause {
   return { type, table, condition };
@@ -524,15 +525,22 @@ export function validateJoinClause(clause: JoinClause): {
   }
 
   // Validate table name and alias
-  const nameResult = validateTableName(clause.table.name);
-  if (!nameResult.success) {
-    errors.push(nameResult.error.message);
-  }
-
-  if (clause.table.alias !== undefined) {
+  if ("unnest" in clause.table) {
     const aliasResult = validateTableAlias(clause.table.alias);
     if (!aliasResult.success) {
       errors.push(aliasResult.error.message);
+    }
+  } else {
+    const nameResult = validateTableName(clause.table.name);
+    if (!nameResult.success) {
+      errors.push(nameResult.error.message);
+    }
+
+    if (clause.table.alias !== undefined) {
+      const aliasResult = validateTableAlias(clause.table.alias);
+      if (!aliasResult.success) {
+        errors.push(aliasResult.error.message);
+      }
     }
   }
 

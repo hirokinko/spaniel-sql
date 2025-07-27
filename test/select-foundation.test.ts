@@ -280,6 +280,21 @@ describe("SELECT Query Builder Foundation", () => {
       assert.strictEqual(builder._query.joins[0].table.alias, "o");
     });
 
+    it("should support crossJoinUnnest method", () => {
+      const builder = createSelect<User>()
+        .from("users")
+        .crossJoinUnnest({ expression: "tags", alias: "tag" });
+
+      assert.ok(builder);
+      assert.strictEqual(builder._query.joins.length, 1);
+      assert.strictEqual(builder._query.joins[0].type, "CROSS");
+      assert.ok("unnest" in builder._query.joins[0].table);
+      if ("unnest" in builder._query.joins[0].table) {
+        assert.strictEqual(builder._query.joins[0].table.unnest, "tags");
+        assert.strictEqual(builder._query.joins[0].table.alias, "tag");
+      }
+    });
+
     it("should support naturalJoin method", () => {
       const builder = createSelect<User>()
         .from("users")

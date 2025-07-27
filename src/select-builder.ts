@@ -31,7 +31,7 @@ import {
   validateSelectQuery,
 } from "./select-utils.js";
 import { generateSelectSQL } from "./sql-generation.js";
-import { createTableReference } from "./table-utils.js";
+import { createTableReference, createUnnestReference } from "./table-utils.js";
 import type { WhereBuilder } from "./where-builder.js";
 import { createWhereWithParameters } from "./where-builder.js";
 
@@ -117,6 +117,12 @@ export type SelectQueryBuilder<T extends SchemaConstraint = SchemaConstraint> = 
   crossJoin<U extends SchemaConstraint>(options: {
     table: string;
     alias?: string;
+    schema?: U;
+  }): SelectQueryBuilder<JoinedTables<T, U>>;
+
+  crossJoinUnnest<U extends SchemaConstraint>(options: {
+    expression: string;
+    alias: string;
     schema?: U;
   }): SelectQueryBuilder<JoinedTables<T, U>>;
 
@@ -588,6 +594,35 @@ const createSelectWithState = <T extends SchemaConstraint = SchemaConstraint>(
       const joinClause: JoinClause = {
         type: "CROSS",
         table: tableRefResult.data,
+        condition: { type: "and", conditions: [] },
+      };
+
+      const newQuery: SelectQuery = {
+        ...builder._query,
+        joins: [...builder._query.joins, joinClause],
+      };
+
+      return createSelectWithState(newQuery, builder._parameters, joinedSchema);
+    },
+
+    crossJoinUnnest<U extends SchemaConstraint>(options: {
+      expression: string;
+      alias: string;
+      schema?: U;
+    }): SelectQueryBuilder<JoinedTables<T, U>> {
+      const { expression, alias, schema } = options;
+      const leftSchema = builder._schema;
+      const rightSchema = schema || ({} as U);
+      const joinedSchema = { ...leftSchema, ...rightSchema } as T & U;
+
+      const unnestResult = createUnnestReference(expression, alias, rightSchema);
+      if (!unnestResult.success) {
+        throw new Error(unnestResult.error.message);
+      }
+
+      const joinClause: JoinClause = {
+        type: "CROSS",
+        table: unnestResult.data,
         condition: { type: "and", conditions: [] },
       };
 

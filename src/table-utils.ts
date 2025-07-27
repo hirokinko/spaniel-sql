@@ -4,7 +4,7 @@
 
 import type { SchemaConstraint } from "./core-types.js";
 import { createFailure, createQueryBuilderError, createSuccess, type Result } from "./errors.js";
-import type { TableReference } from "./select-types.js";
+import type { TableReference, UnnestReference } from "./select-types.js";
 
 /**
  * Validates a table name according to Cloud Spanner naming rules
@@ -245,18 +245,57 @@ export const createTableReference = <T extends SchemaConstraint = SchemaConstrai
 };
 
 /**
+ * Creates an UNNEST table reference with required alias
+ */
+export const createUnnestReference = <T extends SchemaConstraint = SchemaConstraint>(
+  expression: string,
+  alias: string,
+  schema?: T
+): Result<UnnestReference> => {
+  if (typeof expression !== "string" || expression.trim() === "") {
+    return createFailure(
+      createQueryBuilderError(
+        "UNNEST expression must be a non-empty string",
+        "INVALID_UNNEST_EXPRESSION",
+        { providedValue: expression }
+      )
+    );
+  }
+
+  const aliasResult = validateTableAlias(alias);
+  if (!aliasResult.success) {
+    return aliasResult as Result<UnnestReference>;
+  }
+
+  const ref: UnnestReference = {
+    unnest: expression,
+    alias: aliasResult.data,
+    ...(schema && { schema }),
+  };
+
+  return createSuccess(ref);
+};
+
+/**
  * Checks if a TableReference has an alias
  */
 export const hasTableAlias = (
-  tableRef: TableReference
-): tableRef is TableReference & { alias: string } => {
-  return tableRef.alias !== undefined && tableRef.alias !== null && tableRef.alias.trim() !== "";
+  tableRef: TableReference | UnnestReference
+): tableRef is (TableReference | UnnestReference) & { alias: string } => {
+  return (
+    (tableRef as any).alias !== undefined &&
+    (tableRef as any).alias !== null &&
+    String((tableRef as any).alias).trim() !== ""
+  );
 };
 
 /**
  * Gets the effective name for a table reference (alias if present, otherwise table name)
  */
-export const getEffectiveTableName = (tableRef: TableReference): string => {
+export const getEffectiveTableName = (tableRef: TableReference | UnnestReference): string => {
+  if ("unnest" in tableRef) {
+    return tableRef.alias;
+  }
   return hasTableAlias(tableRef) ? tableRef.alias : tableRef.name;
 };
 
@@ -264,7 +303,11 @@ export const getEffectiveTableName = (tableRef: TableReference): string => {
  * Formats a table reference for SQL generation
  * Returns "tableName" or "tableName AS alias" format
  */
-export const formatTableReference = (tableRef: TableReference): string => {
+export const formatTableReference = (tableRef: TableReference | UnnestReference): string => {
+  if ("unnest" in tableRef) {
+    const expr = `UNNEST(${tableRef.unnest})`;
+    return `${expr} AS ${tableRef.alias}`;
+  }
   if (hasTableAlias(tableRef)) {
     return `${tableRef.name} AS ${tableRef.alias}`;
   }
@@ -275,7 +318,13 @@ export const formatTableReference = (tableRef: TableReference): string => {
  * Checks if two table references refer to the same table
  * (same name, ignoring alias and schema)
  */
-export const isSameTable = (tableRef1: TableReference, tableRef2: TableReference): boolean => {
+export const isSameTable = (
+  tableRef1: TableReference | UnnestReference,
+  tableRef2: TableReference | UnnestReference
+): boolean => {
+  if ("unnest" in tableRef1 || "unnest" in tableRef2) {
+    return false;
+  }
   return tableRef1.name === tableRef2.name;
 };
 
@@ -284,8 +333,8 @@ export const isSameTable = (tableRef1: TableReference, tableRef2: TableReference
  * Used for JOIN operations to combine column types
  */
 export const mergeTableSchemas = <T extends SchemaConstraint, U extends SchemaConstraint>(
-  leftTable: TableReference & { schema: T },
-  rightTable: TableReference & { schema: U }
+  leftTable: (TableReference | UnnestReference) & { schema: T },
+  rightTable: (TableReference | UnnestReference) & { schema: U }
 ): T & U => {
   return { ...leftTable.schema, ...rightTable.schema };
 };
@@ -294,7 +343,10 @@ export const mergeTableSchemas = <T extends SchemaConstraint, U extends SchemaCo
  * Creates a qualified column name with table prefix
  * Returns "table.column" or "alias.column" format
  */
-export const qualifyColumnName = (tableRef: TableReference, columnName: string): string => {
+export const qualifyColumnName = (
+  tableRef: TableReference | UnnestReference,
+  columnName: string
+): string => {
   const tableName = getEffectiveTableName(tableRef);
   return `${tableName}.${columnName}`;
 };
