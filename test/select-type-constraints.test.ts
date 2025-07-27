@@ -31,7 +31,7 @@ describe("SelectQueryBuilder Type Constraints", () => {
   });
 
   test("should merge schemas when joining tables", () => {
-    // FIXME: JOIN条件は後で修正が要る
+    // FIXME: The JOIN condition logic needs to be refined or implemented properly.
     const builder = createSelect<UserSchema>()
       .from("users")
       .innerJoin<OrderSchema>({
