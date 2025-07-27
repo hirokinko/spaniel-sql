@@ -667,14 +667,10 @@ export function validateSelectQuery(query: SelectQuery): Result<SelectQuery> {
 
   if (errors.length > 0) {
     return createFailure(
-      createQueryBuilderError(
-        "Validation failed for SELECT query.",
-        "INVALID_SELECT_QUERY",
-        {
-          errors,
-          combinedMessage: errors.map((e) => e.message).join("; "),
-        }
-      )
+      createQueryBuilderError("Validation failed for SELECT query.", "INVALID_SELECT_QUERY", {
+        errors,
+        combinedMessage: errors.map((e) => e.message).join("; "),
+      })
     );
   }
 

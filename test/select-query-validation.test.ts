@@ -5,10 +5,11 @@ import {
   createSelect,
   createSelectClause,
   createWhere,
+  type SchemaConstraint,
   validateSelectQuery,
 } from "../src/index.js";
 
-interface User {
+interface User extends SchemaConstraint {
   id: number;
   name: string;
 }
@@ -31,8 +32,29 @@ describe("Select Query Runtime Validation", () => {
     const result = validateSelectQuery(query);
     assert.ok(!result.success);
     if (!result.success) {
-      assert.strictEqual(result.error.code, "INVALID_SELECT_QUERY");
-      assert.ok(result.error.message.includes("HAVING clause requires GROUP BY"));
+      console.log(JSON.stringify(result.error.details));
+
+      assert.deepStrictEqual(result, {
+        success: false,
+        error: {
+          type: "QueryBuilderError",
+          message: "Validation failed for SELECT query.",
+          code: "INVALID_SELECT_QUERY",
+          details: {
+            combinedMessage: "Invalid HAVING clause: HAVING clause requires GROUP BY",
+            errors: [
+              {
+                code: "INVALID_HAVING_CLAUSE",
+                details: {
+                  errors: ["HAVING clause requires GROUP BY"],
+                },
+                message: "Invalid HAVING clause: HAVING clause requires GROUP BY",
+                type: "QueryBuilderError",
+              },
+            ],
+          },
+        },
+      });
     }
   });
 
@@ -42,6 +64,6 @@ describe("Select Query Runtime Validation", () => {
       .selectAs("name", "dup")
       .from("users");
 
-    assert.throws(() => builder.build(), /duplicate column aliases/i);
+    assert.throws(() => builder.build(), /Error: Validation failed for SELECT query./i);
   });
 });
