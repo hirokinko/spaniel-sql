@@ -19,7 +19,7 @@ interface OrderSchema extends SchemaConstraint {
 
 describe("SelectQueryBuilder Type Constraints", () => {
   test("should enforce column names and type evolution", () => {
-    // FIXME: select, selectAs は修正必要
+    // FIXME: Review and improve type constraints for select and selectAs methods to ensure proper column name validation and type inference.
     const builder = createSelect<UserSchema>().select("id", "name").selectAs("email", "user_email");
 
     // Build to ensure runtime behavior
