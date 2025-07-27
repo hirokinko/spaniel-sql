@@ -84,6 +84,7 @@ export type {
   SelectedColumns,
   SelectQuery,
   TableReference,
+  UnnestReference,
   ValidSelectColumn,
 } from "./select-types.js";
 // SELECT column utilities
@@ -138,6 +139,7 @@ export {
 // Table reference utilities
 export {
   createTableReference,
+  createUnnestReference,
   formatTableReference,
   getEffectiveTableName,
   hasTableAlias,

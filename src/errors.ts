@@ -26,7 +26,8 @@ export type QueryBuilderErrorCode =
   | "INVALID_GROUP_BY_CLAUSE"
   | "INVALID_HAVING_CLAUSE"
   | "INVALID_ORDER_BY_CLAUSE"
-  | "INVALID_SELECT_QUERY";
+  | "INVALID_SELECT_QUERY"
+  | "INVALID_UNNEST_EXPRESSION";
 
 /**
  * Query builder error type with structured error information

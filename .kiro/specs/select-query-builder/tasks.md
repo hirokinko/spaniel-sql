@@ -211,7 +211,7 @@
 
 - [ ] 13. Implement Cloud Spanner specific features
 
-  - [ ] 13.1 Add ARRAY and UNNEST operations
+  - [x] 13.1 Add ARRAY and UNNEST operations
 
     - Implement ARRAY_AGG and array manipulation functions
     - Add UNNEST operation support for array expansion
