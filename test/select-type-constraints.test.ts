@@ -37,12 +37,12 @@ describe("SelectQueryBuilder Type Constraints", () => {
       .innerJoin<OrderSchema>({
         table: "orders",
         schema: { id: 0, user_id: 0, total: 0 },
-        condition: (_u, _o) => createWhere<UserSchema & OrderSchema>(),
+        condition: (_u, _o) => createWhere<UserSchema & OrderSchema>().equals("users.id", "orders.user_id"),
       });
 
     const result = builder.build();
     assert.deepStrictEqual(result, {
-      sql: "SELECT * FROM users INNER JOIN orders ON TRUE",
+      sql: "SELECT * FROM users INNER JOIN orders ON users.id = orders.user_id",
       parameters: {},
     });
   });
