@@ -116,6 +116,7 @@ export {
   validateSelectClause,
   validateSelectColumn,
   validateSelectColumns,
+  validateSelectQuery,
 } from "./select-utils.js";
 // SQL generation
 export {
