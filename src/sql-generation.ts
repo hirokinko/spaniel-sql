@@ -6,7 +6,14 @@ import type { Condition, ConditionGroup, ConditionNode } from "./conditions.js";
 import { isCondition, isConditionGroup } from "./conditions.js";
 import type { ParameterValue } from "./core-types.js";
 import { createQueryBuilderError } from "./errors.js";
-import type { GroupByClause, SelectClause, SelectColumn, SelectQuery } from "./select-types.js";
+import type {
+  GroupByClause,
+  JoinClause,
+  OrderByClause,
+  SelectClause,
+  SelectColumn,
+  SelectQuery,
+} from "./select-types.js";
 import { formatTableReference } from "./table-utils.js";
 
 /**
@@ -415,6 +422,33 @@ export const generateGroupByClause = (clause: GroupByClause): string => {
 };
 
 /**
+ * Generates SQL for a JOIN clause
+ */
+export const generateJoinClause = (clause: JoinClause): string => {
+  const tableSql = formatTableReference(clause.table);
+  if (clause.type === "CROSS" || clause.type === "NATURAL") {
+    return `${clause.type} JOIN ${tableSql}`;
+  }
+  const conditionSql = generateConditionSql(clause.condition);
+  return `${clause.type} JOIN ${tableSql} ON ${conditionSql}`;
+};
+
+/**
+ * Generates SQL for an ORDER BY clause
+ */
+export const generateOrderByClause = (clause: OrderByClause): string => {
+  const columnsSql = clause.columns
+    .map((col) => {
+      const expr = col.column ? col.column : (col.expression ?? "");
+      const nulls =
+        col.nullsFirst === undefined ? "" : col.nullsFirst ? " NULLS FIRST" : " NULLS LAST";
+      return `${expr} ${col.direction}${nulls}`.trim();
+    })
+    .join(", ");
+  return `ORDER BY ${columnsSql}`;
+};
+
+/**
  * Generates SQL for a SELECT query with FROM and WHERE clauses
  */
 export const generateSelectSQL = (query: SelectQuery): string => {
@@ -423,6 +457,10 @@ export const generateSelectSQL = (query: SelectQuery): string => {
 
   if (query.from) {
     parts.push(`FROM ${formatTableReference(query.from)}`);
+  }
+
+  for (const join of query.joins) {
+    parts.push(generateJoinClause(join));
   }
 
   if (query.where && query.where.conditions.length > 0) {
@@ -435,6 +473,18 @@ export const generateSelectSQL = (query: SelectQuery): string => {
 
   if (query.having && query.having.conditions.length > 0) {
     parts.push(`HAVING ${generateConditionSql(query.having)}`);
+  }
+
+  if (query.orderBy) {
+    parts.push(generateOrderByClause(query.orderBy));
+  }
+
+  if (query.limit !== undefined) {
+    parts.push(`LIMIT ${query.limit}`);
+  }
+
+  if (query.offset !== undefined) {
+    parts.push(`OFFSET ${query.offset}`);
   }
 
   return parts.join(" ");

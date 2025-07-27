@@ -175,7 +175,7 @@
     - Write unit tests for complex multi-table join scenarios
     - _Requirements: 8.2, 8.3, 9.3_
 
-- [ ] 11. Implement SQL generation for complete SELECT queries
+- [x] 11. Implement SQL generation for complete SELECT queries
 
 - [x] 11.1 Create SELECT clause SQL generation
 
@@ -185,7 +185,7 @@
     - Write unit tests for SELECT clause SQL generation
     - _Requirements: 1.1, 2.1, 2.3, 3.1_
 
-  - [ ] 11.2 Implement complete query SQL generation
+  - [x] 11.2 Implement complete query SQL generation
     - Create generateSelectSQL function that combines all clauses
     - Implement proper clause ordering (SELECT, FROM, JOIN, WHERE, GROUP BY, HAVING, ORDER BY, LIMIT)
     - Integrate with existing parameter management system
