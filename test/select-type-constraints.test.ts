@@ -48,7 +48,7 @@ describe("SelectQueryBuilder Type Constraints", () => {
   });
 
   test("should infer aggregate result types", () => {
-    // FIXME: これはこれで例として微妙…
+    // FIXME: This example is not ideal because it does not demonstrate a realistic use case for aggregate functions.
     const builder = createSelect<UserSchema>().count().sum("id").from("users");
 
     const result = builder.build();
