@@ -19,15 +19,19 @@ interface OrderSchema extends SchemaConstraint {
 
 describe("SelectQueryBuilder Type Constraints", () => {
   test("should enforce column names and type evolution", () => {
+    // FIXME: select, selectAs は修正必要
     const builder = createSelect<UserSchema>().select("id", "name").selectAs("email", "user_email");
 
     // Build to ensure runtime behavior
     const result = builder.build();
-    assert.ok(typeof result.sql === "string");
-    assert.ok(typeof result.parameters === "object");
+    assert.deepStrictEqual(result, {
+      sql: "SELECT id, name, email AS user_email",
+      parameters: {},
+    });
   });
 
   test("should merge schemas when joining tables", () => {
+    // FIXME: JOIN条件は後で修正が要る
     const builder = createSelect<UserSchema>()
       .from("users")
       .innerJoin<OrderSchema>({
@@ -37,14 +41,20 @@ describe("SelectQueryBuilder Type Constraints", () => {
       });
 
     const result = builder.build();
-    assert.ok(typeof result.sql === "string");
+    assert.deepStrictEqual(result, {
+      sql: "SELECT * FROM users INNER JOIN orders ON TRUE",
+      parameters: {},
+    });
   });
 
   test("should infer aggregate result types", () => {
+    // FIXME: これはこれで例として微妙…
     const builder = createSelect<UserSchema>().count().sum("id").from("users");
 
     const result = builder.build();
-    assert.ok(typeof result.sql === "string");
-    assert.ok(typeof result.parameters === "object");
+    assert.deepStrictEqual(result, {
+      sql: "SELECT COUNT(*), SUM(id) FROM users",
+      parameters: {},
+    });
   });
 });
