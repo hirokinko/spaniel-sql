@@ -177,7 +177,7 @@
 
 - [ ] 11. Implement SQL generation for complete SELECT queries
 
-  - [ ] 11.1 Create SELECT clause SQL generation
+- [x] 11.1 Create SELECT clause SQL generation
 
     - Implement generateSelectClause function for column lists
     - Support aggregate function SQL generation
