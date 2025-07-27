@@ -666,11 +666,15 @@ export function validateSelectQuery(query: SelectQuery): Result<SelectQuery> {
   }
 
   if (errors.length > 0) {
-    const messages = errors.map((e) => e.message).join("; ");
     return createFailure(
-      createQueryBuilderError(messages, "INVALID_SELECT_QUERY", {
-        errors,
-      })
+      createQueryBuilderError(
+        "Validation failed for SELECT query.",
+        "INVALID_SELECT_QUERY",
+        {
+          errors,
+          combinedMessage: errors.map((e) => e.message).join("; "),
+        }
+      )
     );
   }
 
