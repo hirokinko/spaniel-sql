@@ -32,7 +32,6 @@ describe("Select Query Runtime Validation", () => {
     const result = validateSelectQuery(query);
     assert.ok(!result.success);
     if (!result.success) {
-      console.log(JSON.stringify(result.error.details));
 
       assert.deepStrictEqual(result, {
         success: false,
