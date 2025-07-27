@@ -37,7 +37,8 @@ describe("SelectQueryBuilder Type Constraints", () => {
       .innerJoin<OrderSchema>({
         table: "orders",
         schema: { id: 0, user_id: 0, total: 0 },
-        condition: (_u, _o) => createWhere<UserSchema & OrderSchema>().equals("users.id", "orders.user_id"),
+        condition: (_u, _o) =>
+          createWhere<UserSchema & OrderSchema>().eqCol("users.id", "orders.user_id"),
       });
 
     const result = builder.build();

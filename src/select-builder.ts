@@ -28,6 +28,7 @@ import {
   validateHavingClause,
   validateLimitValue,
   validateOffsetValue,
+  validateSelectQuery,
 } from "./select-utils.js";
 import { generateSelectSQL } from "./sql-generation.js";
 import { createTableReference } from "./table-utils.js";
@@ -797,7 +798,12 @@ const createSelectWithState = <T extends SchemaConstraint = SchemaConstraint>(
     },
 
     build(): QueryResult {
-      const sql = generateSelectSQL(builder._query);
+      const validation = validateSelectQuery(builder._query);
+      if (!validation.success) {
+        throw new Error(validation.error.message);
+      }
+
+      const sql = generateSelectSQL(validation.data);
       return {
         sql,
         parameters: builder._parameters.parameters,

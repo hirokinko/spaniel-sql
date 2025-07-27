@@ -4,7 +4,13 @@
 
 import type { ConditionGroup } from "./conditions.js";
 import type { SchemaConstraint } from "./core-types.js";
-import { createFailure, createQueryBuilderError, createSuccess, type Result } from "./errors.js";
+import {
+  createFailure,
+  createQueryBuilderError,
+  createSuccess,
+  type QueryBuilderError,
+  type Result,
+} from "./errors.js";
 import { addParameter, type ParameterManager } from "./parameter-manager.js";
 import {
   AGGREGATE_FUNCTIONS,
@@ -540,4 +546,133 @@ export function validateJoinClause(clause: JoinClause): {
   }
 
   return { valid: errors.length === 0, errors };
+}
+
+/**
+ * Validates an entire SelectQuery structure using existing clause validators
+ */
+export function validateSelectQuery(query: SelectQuery): Result<SelectQuery> {
+  const errors: QueryBuilderError[] = [];
+
+  // Validate SELECT clause
+  if (query.select.columns.length > 0) {
+    const selectValidation = validateSelectClause(query.select, query.from?.schema);
+    if (!selectValidation.valid) {
+      errors.push(
+        createQueryBuilderError(
+          `Invalid SELECT clause: ${selectValidation.errors.join("; ")}`,
+          "INVALID_SELECT_CLAUSE",
+          { errors: selectValidation.errors }
+        )
+      );
+    }
+  }
+
+  // Validate FROM clause
+  if (query.from) {
+    const nameResult = validateTableName(query.from.name);
+    if (!nameResult.success) {
+      errors.push(nameResult.error);
+    }
+    if (query.from.alias !== undefined) {
+      const aliasResult = validateTableAlias(query.from.alias);
+      if (!aliasResult.success) {
+        errors.push(aliasResult.error);
+      }
+    }
+  }
+
+  // Validate JOIN clauses
+  for (const join of query.joins) {
+    const result = validateJoinClause(join);
+    if (!result.valid) {
+      errors.push(
+        createQueryBuilderError(
+          `Invalid JOIN clause: ${result.errors.join("; ")}`,
+          "INVALID_JOIN_CLAUSE",
+          { errors: result.errors }
+        )
+      );
+    }
+  }
+
+  // Validate GROUP BY
+  if (query.groupBy) {
+    const result = validateGroupByClause(query.groupBy, query.from?.schema);
+    if (!result.valid) {
+      errors.push(
+        createQueryBuilderError(
+          `Invalid GROUP BY clause: ${result.errors.join("; ")}`,
+          "INVALID_GROUP_BY_CLAUSE",
+          { errors: result.errors }
+        )
+      );
+    }
+  }
+
+  // Validate GROUP BY columns with aggregates
+  const groupByUsage = validateGroupByColumns(query);
+  if (!groupByUsage.valid) {
+    errors.push(
+      createQueryBuilderError(
+        `Invalid GROUP BY usage: ${groupByUsage.errors.join("; ")}`,
+        "INVALID_GROUP_BY_CLAUSE",
+        { errors: groupByUsage.errors }
+      )
+    );
+  }
+
+  // Validate HAVING clause
+  if (query.having) {
+    const result = validateHavingClause(query);
+    if (!result.valid) {
+      errors.push(
+        createQueryBuilderError(
+          `Invalid HAVING clause: ${result.errors.join("; ")}`,
+          "INVALID_HAVING_CLAUSE",
+          { errors: result.errors }
+        )
+      );
+    }
+  }
+
+  // Validate ORDER BY clause
+  if (query.orderBy) {
+    const result = validateOrderByClause(query.orderBy);
+    if (!result.valid) {
+      errors.push(
+        createQueryBuilderError(
+          `Invalid ORDER BY clause: ${result.errors.join("; ")}`,
+          "INVALID_ORDER_BY_CLAUSE",
+          { errors: result.errors }
+        )
+      );
+    }
+  }
+
+  // Validate LIMIT/OFFSET
+  if (query.limit !== undefined) {
+    const result = validateLimitValue(query.limit);
+    if (!result.success) {
+      errors.push(result.error);
+    }
+  }
+
+  if (query.offset !== undefined) {
+    const result = validateOffsetValue(query.offset);
+    if (!result.success) {
+      errors.push(result.error);
+    }
+  }
+
+  if (errors.length > 0) {
+    return createFailure(
+      createQueryBuilderError("Validation failed for SELECT query.", "INVALID_SELECT_QUERY", {
+        errors,
+        combinedMessage: errors.map((e) => e.message).join("; "),
+      })
+    );
+  }
+
+  return createSuccess(query);
 }

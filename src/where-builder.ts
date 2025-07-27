@@ -70,6 +70,7 @@ export type WhereBuilder<T extends SchemaConstraint = SchemaConstraint> = {
 
   // Basic comparisons with type constraints
   eq<K extends keyof T>(column: ValidColumn<T, K>, value: ValidValue<T, K>): WhereBuilder<T>;
+  eqCol(column: string, otherColumn: string): WhereBuilder<T>;
   ne<K extends keyof T>(column: ValidColumn<T, K>, value: ValidValue<T, K>): WhereBuilder<T>;
   lt<K extends keyof T>(column: ValidColumn<T, K>, value: ValidValue<T, K>): WhereBuilder<T>;
   gt<K extends keyof T>(column: ValidColumn<T, K>, value: ValidValue<T, K>): WhereBuilder<T>;
@@ -122,6 +123,17 @@ const createWhereWithState = <T extends SchemaConstraint = SchemaConstraint>(
       const newConditions = createAndGroup([...builder._conditions.conditions, condition]);
 
       return createWhereWithState<T>(newConditions, newParameters);
+    },
+
+    eqCol(column: string, otherColumn: string): WhereBuilder<T> {
+      const condition: Condition = {
+        type: "comparison",
+        column: String(column),
+        operator: "=",
+        parameterName: otherColumn,
+      };
+      const newConditions = createAndGroup([...builder._conditions.conditions, condition]);
+      return createWhereWithState<T>(newConditions, builder._parameters);
     },
 
     ne<K extends keyof T>(column: ValidColumn<T, K>, value: ValidValue<T, K>): WhereBuilder<T> {

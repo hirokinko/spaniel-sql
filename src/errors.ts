@@ -19,7 +19,14 @@ export type QueryBuilderErrorCode =
   | "INVALID_TABLE_NAME"
   | "INVALID_TABLE_ALIAS"
   | "INVALID_LIMIT_VALUE"
-  | "INVALID_OFFSET_VALUE";
+  | "INVALID_OFFSET_VALUE"
+  | "INVALID_SELECT_CLAUSE"
+  | "INVALID_FROM_CLAUSE"
+  | "INVALID_JOIN_CLAUSE"
+  | "INVALID_GROUP_BY_CLAUSE"
+  | "INVALID_HAVING_CLAUSE"
+  | "INVALID_ORDER_BY_CLAUSE"
+  | "INVALID_SELECT_QUERY";
 
 /**
  * Query builder error type with structured error information
