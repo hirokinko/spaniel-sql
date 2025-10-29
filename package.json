@@ -1,0 +1,40 @@
+{
+	"name": "spaniel-sql",
+	"version": "0.0.1",
+	"type": "commonjs",
+	"main": "./dist/index.cjs",
+	"module": "./dist/index.mjs",
+	"types": "./dist/index.d.ts",
+	"exports": {
+		".": {
+			"types": "./dist/index.d.ts",
+			"import": "./dist/index.mjs",
+			"require": "./dist/index.cjs",
+			"default": "./dist/index.cjs"
+		}
+	},
+	"files": [
+		"dist",
+		"LICENSE"
+	],
+	"scripts": {
+		"build": "tsup src/index.ts --dts --format cjs,esm --out-dir dist --clean --treeshake",
+		"dev": "tsup src/index.ts --dts --format cjs,esm --out-dir dist --watch",
+		"typecheck": "tsc --noEmit",
+		"lint": "biome lint --error-on-warnings",
+		"format": "biome format --write",
+		"format:check": "biome format --write=false",
+		"ci:check": "pnpm -s lint && pnpm -s format:check && pnpm -s typecheck && pnpm -s test",
+		"test": "node --test --conditions=node --test-reporter=spec",
+		"prepublishOnly": "pnpm -s build && pnpm -s ci:check"
+	},
+	"devDependencies": {
+		"@biomejs/biome": "^2.3.2",
+		"@tsconfig/node22": "^22.0.2",
+		"tsup": "^8.5.0",
+		"typescript": "^5.9.3"
+	},
+	"engines": {
+		"node": ">=22"
+	}
+}
