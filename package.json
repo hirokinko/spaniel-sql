@@ -24,7 +24,7 @@
 		"typecheck": "tsc --noEmit",
 		"lint": "biome lint --error-on-warnings",
 		"format": "biome format --write",
-		"format:check": "biome format --write=false",
+		"format:check": "biome format",
 		"ci:check": "pnpm -s lint && pnpm -s format:check && pnpm -s typecheck && pnpm -s test",
 		"build:test": "tsc -p tsconfig.tests.json",
 		"test:cjs": "node --test --test-reporter=spec \".tmp-tests/tests/cjs/**/*.cjs\"",
