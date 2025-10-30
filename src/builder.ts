@@ -1,6 +1,6 @@
 import type { FinalQuery, FromStep, BuildContext, BoolExpr } from './core/types.js';
-import { createColumnProxy, objectToProjections } from './core/types.js';
-import type { SelectStmt } from './core/ast.js';
+import { createColumnProxy, objectToProjections, toParam } from './core/types.js';
+import type { OrderItem, SelectStmt } from './core/ast.js';
 import { toSql as coreToSql } from './core/sqlPrinter.js';
 import { spannerDialect } from './dialect/index.js';
 import type { ColumnType, TableDef } from './core/schema.js';
@@ -54,25 +54,30 @@ export function createDb(): Db {
   return { from, fromNamed, selectExpr };
 }
 
-function makeFromStep<TSources, C extends Record<string, ColumnType<any>>>(
-  ctx: BuildContext<C>,
-): FromStep<TSources, C> {
-  const where = (
-    predicate: (c: ColumnProxy<C>) => BoolExpr,
-  ): FromStep<TSources, C> => {
-    const c = createColumnProxy<C>(ctx.table, ctx.columns);
-    ctx.stmt.where = predicate(c) as any;
+function makeFromStep<TSources, C extends Record<string, ColumnType<any>>>(ctx: BuildContext<C>): FromStep<TSources, C> {
+  const where = (pred: (c: ColumnProxy<C>) => BoolExpr): FromStep<TSources, C> => {
+    ctx.stmt.where = pred(createColumnProxy<C>(ctx.table, ctx.columns)) as any;
     return makeFromStep<TSources, C>(ctx);
   };
-
-  const select = <S>(project: (c: ColumnProxy<C>, fn: Record<string, never>) => S): FinalQuery<S> => {
+  const orderBy = (pick: (c: ColumnProxy<C>) => OrderItem[] | OrderItem): FromStep<TSources, C> => {
+    const res = pick(createColumnProxy<C>(ctx.table, ctx.columns));
+    ctx.stmt.orderBy = Array.isArray(res) ? res : [res];
+    return makeFromStep<TSources, C>(ctx);
+  };
+  const limit = (n: number): FromStep<TSources, C> => {
+    ctx.stmt.limit = toParam(n);
+    return makeFromStep<TSources, C>(ctx);
+  };
+  const offset = (n: number): FromStep<TSources, C> => {
+    ctx.stmt.offset = toParam(n);
+    return makeFromStep<TSources, C>(ctx);
+  };
+  const select = <S>(project: (c: ColumnProxy<C>, fn: Record<string, never>) => S) => {
     const c = createColumnProxy<C>(ctx.table, ctx.columns);
-    const shaped = project(c, {});
-    ctx.stmt.projections = objectToProjections(shaped as any, ctx.table);
+    ctx.stmt.projections = objectToProjections(project(c, {}) as any, ctx.table);
     return makeFinalQuery<S>(ctx.stmt);
   };
-
-  return { where, select };
+  return { where, orderBy, limit, offset, select } as unknown as FromStep<TSources, C>;
 }
 
 function makeFinalQuery<S>(stmt: SelectStmt): FinalQuery<S> {

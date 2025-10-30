@@ -1,4 +1,4 @@
-import type { Expr, Projection, SelectStmt } from './ast.js';
+import type { Expr, OrderItem, Projection, SelectStmt } from './ast.js';
 import { spTypeToString } from './schema.js';
 
 export type SqlOut = {
@@ -22,18 +22,14 @@ export function toSql(stmt: SelectStmt, dialect: Dialect): SqlOut {
 
   const printExpr = (expr: Expr): string => {
     switch (expr.kind) {
-      case 'column':
-        return expr.name;
-      case 'param':
-        return nameParam(expr.value, expr.hint);
-      case 'literal':
-        return nameParam(expr.value);
-      case 'bool':
-        return expr.value ? 'TRUE' : 'FALSE';
-      case 'binary': {
-        const l = printExpr(expr.left);
-        const r = printExpr(expr.right);
-        return `${l} ${expr.op} ${r}`;
+      case 'column': return expr.name;
+      case 'param':  return nameParam(expr.value, expr.hint);
+      case 'literal':return nameParam(expr.value);
+      case 'bool':   return expr.value ? 'TRUE' : 'FALSE';
+      case 'binary': return `${printExpr(expr.left)} ${expr.op} ${printExpr(expr.right)}`;
+      case 'in_list': {
+        const items = expr.items.map(printExpr).join(', ');
+        return `${printExpr(expr.left)} IN (${items || ''})`;
       }
       case 'bool_nary': {
         const parts = expr.items.map(printExpr);
@@ -46,15 +42,21 @@ export function toSql(stmt: SelectStmt, dialect: Dialect): SqlOut {
     }
   };
 
+  const printOrderBy = (items?: OrderItem[]) =>
+    !items || items.length === 0
+      ? ''
+      : `ORDER BY ${items.map((i) => `${printExpr(i.expr)} ${i.dir}`).join(', ')}`;
+
   const sql = [
     'SELECT',
     printProjections(stmt.projections, printExpr),
     'FROM',
     stmt.from.name,
     stmt.where ? `WHERE ${printExpr(stmt.where)}` : '',
-  ]
-    .filter(Boolean)
-    .join(' ');
+    printOrderBy(stmt.orderBy),
+    stmt.limit ? `LIMIT ${printExpr(stmt.limit)}` : '',
+    stmt.offset ? `OFFSET ${printExpr(stmt.offset)}` : '',
+  ].filter(Boolean).join(' ');
 
   return { sql, params, paramTypes: types };
 }
