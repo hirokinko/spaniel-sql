@@ -182,7 +182,7 @@ export function objectToProjections(
 ): Projection[] {
   const out: Projection[] = [];
   for (const [alias, v] of Object.entries(obj)) {
-    if (v && typeof v === "object" && (v as any).kind === "column") {
+    if (v && typeof v === "object" && ((v as any).kind === "column" || (v as any).kind === "coalesce")) {
       out.push({ expr: v as ColumnExpr, alias });
     } else if (
       v === null ||
@@ -201,3 +201,14 @@ export function objectToProjections(
 // 並び順ヘルパ
 export const asc = (e: Expr): OrderItem => ({ expr: e, dir: "ASC" });
 export const desc = (e: Expr): OrderItem => ({ expr: e, dir: "DESC" });
+
+export const fn = {
+  coalesce: (...items: Expr[]): Expr => {
+    const xs = items.filter(Boolean);
+    if (xs.length === 0) return { kind: 'literal', value: null };
+    if (xs.length === 1) return xs[0]!;
+    return { kind: 'coalesce', items: xs };
+  },
+  isNull:  (e: Expr): Expr => ({ kind: 'is_null', expr: e }),
+  notNull: (e: Expr): Expr => ({ kind: 'is_not_null', expr: e }),
+};

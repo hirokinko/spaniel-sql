@@ -2,7 +2,6 @@ import type { FinalQuery, FromStep, BuildContext, BoolExpr } from './core/types.
 import { createColumnProxy, objectToProjections, toParam } from './core/types.js';
 import type { OrderItem, SelectStmt } from './core/ast.js';
 import { toSql as coreToSql } from './core/sqlPrinter.js';
-import { spannerDialect } from './dialect/index.js';
 import type { ColumnType, TableDef } from './core/schema.js';
 import type { ColumnProxy } from './core/schema.js';
 
@@ -81,5 +80,5 @@ function makeFromStep<TSources, C extends Record<string, ColumnType<any>>>(ctx: 
 }
 
 function makeFinalQuery<S>(stmt: SelectStmt): FinalQuery<S> {
-  return { toSql: () => coreToSql(stmt, spannerDialect) };
+  return { toSql: () => coreToSql(stmt, { paramName: (i) => `@p${i}` }) };
 }

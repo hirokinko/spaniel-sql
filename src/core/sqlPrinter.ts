@@ -37,6 +37,14 @@ export function toSql(stmt: SelectStmt, dialect: Dialect): SqlOut {
           ? parts[0] ?? (expr.op === 'AND' ? 'TRUE' : 'FALSE')
           : `(${parts.join(` ${expr.op} `)})`;
       }
+      case 'coalesce': {
+        const parts = expr.items.map(printExpr).join(', ');
+        return `COALESCE(${parts})`;
+      }
+      case 'is_null':
+        return `${printExpr(expr.expr)} IS NULL`;
+      case 'is_not_null':
+        return `${printExpr(expr.expr)} IS NOT NULL`;
       default:
         throw new Error(`Unsupported expression ${(expr as any).kind}`);
     }

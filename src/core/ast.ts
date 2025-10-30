@@ -9,7 +9,10 @@ export type Expr =
   | { kind: 'bool'; value: boolean }
   | { kind: 'binary'; op: '=' | '!=' | '<' | '<=' | '>' | '>=' | 'LIKE'; left: Expr; right: Expr }
   | { kind: 'in_list'; left: Expr; items: Expr[] }
-  | { kind: 'bool_nary'; op: 'AND' | 'OR'; items: Expr[] };
+  | { kind: 'bool_nary'; op: 'AND' | 'OR'; items: Expr[] }
+  | { kind: 'coalesce'; items: Expr[] }
+  | { kind: 'is_null'; expr: Expr }
+  | { kind: 'is_not_null'; expr: Expr };
 
 export type Projection = { expr: Expr; alias?: Identifier };
 export type FromSourceTable = { kind: 'table'; name: Identifier };
