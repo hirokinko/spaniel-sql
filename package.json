@@ -2,15 +2,15 @@
 	"name": "spaniel-sql",
 	"version": "0.0.1",
 	"type": "commonjs",
-	"main": "./dist/index.cjs",
+	"main": "./dist/index.js",
 	"module": "./dist/index.mjs",
 	"types": "./dist/index.d.ts",
 	"exports": {
 		".": {
 			"types": "./dist/index.d.ts",
 			"import": "./dist/index.mjs",
-			"require": "./dist/index.cjs",
-			"default": "./dist/index.cjs"
+			"require": "./dist/index.js",
+			"default": "./dist/index.js"
 		}
 	},
 	"files": [
@@ -18,6 +18,7 @@
 		"LICENSE"
 	],
 	"scripts": {
+		"clean": "rm -rf dist .tmp-tests",
 		"build": "tsup src/index.ts --dts --format cjs,esm --out-dir dist --clean --treeshake",
 		"dev": "tsup src/index.ts --dts --format cjs,esm --out-dir dist --watch",
 		"typecheck": "tsc --noEmit",
@@ -25,12 +26,16 @@
 		"format": "biome format --write",
 		"format:check": "biome format --write=false",
 		"ci:check": "pnpm -s lint && pnpm -s format:check && pnpm -s typecheck && pnpm -s test",
-		"test": "node --test --conditions=node --test-reporter=spec",
+		"build:test": "tsc -p tsconfig.tests.json",
+		"test:cjs": "node --test --test-reporter=spec \".tmp-tests/tests/cjs/**/*.cjs\"",
+		"test:esm": "node --test --test-reporter=spec \".tmp-tests/tests/esm/**/*.mjs\"",
+		"test": "pnpm -s clean && pnpm -s build && pnpm -s build:test && pnpm -s test:cjs && pnpm -s test:esm",
 		"prepublishOnly": "pnpm -s build && pnpm -s ci:check"
 	},
 	"devDependencies": {
 		"@biomejs/biome": "^2.3.2",
 		"@tsconfig/node22": "^22.0.2",
+		"@types/node": "^24.9.2",
 		"tsup": "^8.5.0",
 		"typescript": "^5.9.3"
 	},

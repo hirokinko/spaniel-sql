@@ -1,0 +1,25 @@
+{
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "outDir": ".tmp-tests",
+    "rootDir": ".",
+    "module": "NodeNext",
+    "moduleResolution": "NodeNext",
+    "verbatimModuleSyntax": false,
+    "moduleDetection": "force",
+    "noEmit": false,
+    "declaration": false,
+    "sourceMap": false,
+    "resolveJsonModule": true,
+    "allowJs": false,
+    "types": ["node"],
+    "skipLibCheck": true,
+    "baseUrl": ".",
+    "paths": {
+      "spaniel-sql": ["dist/index.d.ts"],
+      "spaniel-sql/*": ["dist/*"]
+    }
+  },
+  "include": ["tests/**/*.ts", "tests/**/*.cts", "tests/**/*.mts"],
+  "exclude": ["src", "node_modules"]
+}

@@ -12,7 +12,7 @@
     "declarationMap": false,
     "skipLibCheck": true,
     "lib": ["ES2022"],
-    "types": []
+    "types": ["node"]
   },
   "include": ["src", "tests", "scripts"]
 }
