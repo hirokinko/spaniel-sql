@@ -12,7 +12,8 @@ export type Expr =
   | { kind: 'bool_nary'; op: 'AND' | 'OR'; items: Expr[] }
   | { kind: 'coalesce'; items: Expr[] }
   | { kind: 'is_null'; expr: Expr }
-  | { kind: 'is_not_null'; expr: Expr };
+  | { kind: 'is_not_null'; expr: Expr }
+  | { kind: 'nullif'; a: Expr; b: Expr };
 
 export type Projection = { expr: Expr; alias?: Identifier };
 export type FromSourceTable = { kind: 'table'; name: Identifier };

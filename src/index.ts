@@ -1,4 +1,4 @@
 export { createDb } from './builder.js';
-export { defineTable, ct } from './core/schema.js';
-export { cmp, bool, TRUE, FALSE, asc, desc, fn } from './core/types.js';
+export { ct, defineTable } from './core/schema.js';
+export { asc, bool, cmp, desc, FALSE, fn, lit, TRUE } from './core/types.js';
 export type { FinalQuery } from './core/types.js';

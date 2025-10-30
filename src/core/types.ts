@@ -141,8 +141,56 @@ export function createColumnProxy<C extends Record<string, ColumnType<any>>>(
 }
 
 export function toParam(value: unknown, hint?: SpType): Expr {
-  if (hint === undefined) return { kind: "param", value };
-  return { kind: "param", value, hint };
+  if (isExpr(value)) {
+    if (value.kind === "param")
+      return hint ? { ...value, hint: hint ?? value.hint } : value;
+    if (value.kind === "literal") {
+      const h = hint ?? (value as any).hint;
+      return h === undefined
+        ? { kind: "param", value: value.value }
+        : { kind: "param", value: value.value, hint: h };
+    }
+    // それ以外（column など）は param 化の対象ではないので、そのまま返すのはNG。
+    // toParam は「右辺値専用」なので、ここに来るのは設計ミスとみなしてエラーにしておくと安全。
+    throw new Error("toParam(): unsupported Expr on right-hand side");
+  }
+  return hint === undefined
+    ? { kind: "param", value }
+    : { kind: "param", value, hint };
+}
+
+type LitHint = SpType | ColumnType<any> | undefined;
+const toSpType = (h: LitHint): SpType | undefined => {
+  if (!h) return undefined;
+  // ColumnType のときは __sp を拾う
+  // ColumnType なら __sp を返し、そうでなければそのまま SpType として返す
+  if ((h as ColumnType<any>).__sp !== undefined)
+    return (h as ColumnType<any>).__sp;
+  return h as SpType;
+};
+
+export function lit(value: unknown, hint?: LitHint): Expr {
+  // Expr を渡されても param に「中身の値」を入れる
+  if (isExpr(value)) {
+    if (value.kind === "param") {
+      // 明示ヒントが来たら上書き、なければそのまま流用
+      const h = toSpType(hint);
+      return h === undefined ? value : { ...value, hint: h };
+    }
+    if (value.kind === "literal") {
+      const h = toSpType(hint) ?? (value as any).hint;
+      return h === undefined
+        ? { kind: "param", value: (value as any).value }
+        : { kind: "param", value: (value as any).value, hint: h };
+    }
+    throw new Error(
+      "lit(): value must be a JS literal/param, not an expression node."
+    );
+  }
+  const h = toSpType(hint);
+  return h === undefined
+    ? { kind: "param", value }
+    : { kind: "param", value, hint: h };
 }
 
 export type FinalQuery<S> = {
@@ -182,7 +230,11 @@ export function objectToProjections(
 ): Projection[] {
   const out: Projection[] = [];
   for (const [alias, v] of Object.entries(obj)) {
-    if (v && typeof v === "object" && ((v as any).kind === "column" || (v as any).kind === "coalesce")) {
+    if (
+      v &&
+      typeof v === "object" &&
+      ((v as any).kind === "column" || (v as any).kind === "coalesce")
+    ) {
       out.push({ expr: v as ColumnExpr, alias });
     } else if (
       v === null ||
@@ -205,10 +257,11 @@ export const desc = (e: Expr): OrderItem => ({ expr: e, dir: "DESC" });
 export const fn = {
   coalesce: (...items: Expr[]): Expr => {
     const xs = items.filter(Boolean);
-    if (xs.length === 0) return { kind: 'literal', value: null };
+    if (xs.length === 0) return { kind: "literal", value: null };
     if (xs.length === 1) return xs[0]!;
-    return { kind: 'coalesce', items: xs };
+    return { kind: "coalesce", items: xs };
   },
-  isNull:  (e: Expr): Expr => ({ kind: 'is_null', expr: e }),
-  notNull: (e: Expr): Expr => ({ kind: 'is_not_null', expr: e }),
+  isNull: (e: Expr): Expr => ({ kind: "is_null", expr: e }),
+  notNull: (e: Expr): Expr => ({ kind: "is_not_null", expr: e }),
+  nullIf: (a: Expr, b: Expr): Expr => ({ kind: "nullif", a, b }),
 };
