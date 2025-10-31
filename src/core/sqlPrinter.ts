@@ -38,6 +38,9 @@ export function toSql(stmt: SelectStmt, dialect: Dialect): SqlOut {
         const items = expr.items.map(printExpr).join(", ");
         return `${printExpr(expr.left)} IN (${items || ""})`;
       }
+      case "in_unnest": {
+        return `${printExpr(expr.left)} IN UNNEST(${printExpr(expr.param)})`;
+      }
       case "bool_nary": {
         const parts = expr.items.map(printExpr);
         return parts.length <= 1

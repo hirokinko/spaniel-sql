@@ -1,12 +1,13 @@
 import type { Expr, OrderItem, Projection, SelectStmt } from "./ast.js";
+import { isStrict, QueryBuildError } from "./safety.js";
 import type { ColumnProxy, ColumnType } from "./schema.js";
 import type { SpType } from "./schema.js";
 
+const isExpr = (x: unknown): x is BoolExpr =>
+  !!x && typeof x === "object" && "kind" in (x as any);
 export type BoolExpr = Expr;
 export const TRUE: BoolExpr = { kind: "bool", value: true };
 export const FALSE: BoolExpr = { kind: "bool", value: false };
-const isExpr = (x: unknown): x is BoolExpr =>
-  !!x && typeof x === "object" && "kind" in (x as any);
 export type BoolOps = {
   and: (items: Array<BoolExpr | null | undefined | false>) => BoolExpr;
   or: (items: Array<BoolExpr | null | undefined | false>) => BoolExpr;
@@ -26,6 +27,23 @@ export const bool: BoolOps = {
   },
 };
 
+function forbidNull(label: string, v: unknown, advice?: string) {
+  if (isStrict() && (v === null || v === undefined)) {
+    throw new QueryBuildError(`${label}: null/undefined is not allowed. ${advice ?? ''}`.trim());
+  }
+}
+
+function ensureArray(label: string, arr: unknown[]) {
+  if (isStrict()) {
+    if (!Array.isArray(arr)) throw new QueryBuildError(`${label}: requires an array.`);
+    if (arr.length === 0) return 'empty'; // 呼び出し側で FALSE へ
+    if (arr.some((x) => x === null || x === undefined)) {
+      throw new QueryBuildError(`${label}: array contains null/undefined. Clean the list first.`);
+    }
+  }
+  return 'ok';
+}
+
 // 比較演算：左が列ならその列型を右パラメータの hint に埋め込む
 export type CmpOps = {
   eq: (l: Expr, r: unknown) => Expr;
@@ -37,59 +55,74 @@ export type CmpOps = {
   like: (l: Expr, pattern: unknown) => Expr;
   between: (l: Expr, from: unknown, to: unknown) => Expr;
   in: (l: Expr, values: unknown[]) => Expr;
+  inUnnest: (l: Expr, values: unknown[]) => Expr;
 };
 export const cmp: CmpOps = {
-  eq: (l, r) =>
-    ({
+  eq: (l, r) => {
+    forbidNull('cmp.eq', r, 'Use fn.isNull(col) or fn.notNull(col) instead.');
+    return {
       kind: "binary",
       op: "=",
       left: l,
       right: toParam(r, (l as any).spType),
-    } as const),
-  ne: (l, r) =>
-    ({
+    } as const;
+  },
+  ne: (l, r) => {
+    forbidNull('cmp.ne', r, 'Use fn.isNull(col) or fn.notNull(col) instead.');
+    return {
       kind: "binary",
       op: "!=",
       left: l,
       right: toParam(r, (l as any).spType),
-    } as const),
-  gt: (l, r) =>
-    ({
+    } as const;
+  },
+  gt: (l, r) =>{
+    forbidNull('cmp.gt', r);
+    return ({
       kind: "binary",
       op: ">",
       left: l,
       right: toParam(r, (l as any).spType),
-    } as const),
-  ge: (l, r) =>
-    ({
+    } as const);
+  },
+  ge: (l, r) => {
+    forbidNull('cmp.ge', r);
+    return {
       kind: "binary",
       op: ">=",
       left: l,
       right: toParam(r, (l as any).spType),
-    } as const),
-  lt: (l, r) =>
-    ({
+    } as const;
+  },
+  lt: (l, r) => {
+    forbidNull('cmp.lt', r);
+    return ({
       kind: "binary",
       op: "<",
       left: l,
       right: toParam(r, (l as any).spType),
-    } as const),
-  le: (l, r) =>
-    ({
+    } as const)},
+  le: (l, r) => {
+    forbidNull('cmp.le', r);
+    return ({
       kind: "binary",
       op: "<=",
       left: l,
       right: toParam(r, (l as any).spType),
-    } as const),
-  like: (l, pattern) =>
-    ({
+    } as const);},
+  like: (l, pattern) => {
+    forbidNull('cmp.like', pattern);
+    return ({
       kind: "binary",
       op: "LIKE",
       left: l,
       right: toParam(pattern, (l as any).spType),
-    } as const),
-  between: (l, from, to) =>
-    ({
+    } as const);
+  },
+  between: (l, from, to) => {
+    forbidNull('cmp.between(from)', from);
+    forbidNull('cmp.between(to)', to);
+    return ({
       kind: "bool_nary",
       op: "AND",
       items: [
@@ -106,12 +139,26 @@ export const cmp: CmpOps = {
           right: toParam(to, (l as any).spType),
         },
       ],
-    } as const),
+    } as const);
+  },
   in: (l, values) => {
+    const state = ensureArray('cmp.in', values);
+    if (state === 'empty') {
+      return FALSE;
+    }
     const t = (l as any).spType as SpType | undefined;
     if (!values || values.length === 0) return FALSE;
     const items = values.map((v) => toParam(v, t));
     return { kind: "in_list", left: l, items };
+  },
+  inUnnest: (l, values) => {
+    const state = ensureArray('cmp.inUnnest', values);
+    if (state === 'empty') {
+      return FALSE;
+    }
+    const t = (l as any).spType as SpType | undefined;
+    const param = toParam(values, t ? { kind: 'array', of: t } : undefined);
+    return { kind: "in_unnest", left: l, param };
   },
 };
 export type ColumnExpr = {
@@ -141,6 +188,19 @@ export function createColumnProxy<C extends Record<string, ColumnType<any>>>(
 }
 
 export function toParam(value: unknown, hint?: SpType): Expr {
+  // strictモードのときは明示ガードする
+  if (isStrict()) {
+    if (value === undefined) {
+      throw new QueryBuildError(
+        `toParam(): received undefined. Use NULL explicitly (lit(null, hint)) or fix the caller.`,
+      );
+    }
+    // NaN/Infinity は危険。FLOAT64でも事故が多いので既定で禁止
+    if (typeof value === 'number' && !Number.isFinite(value)) {
+      throw new QueryBuildError(`toParam(): NaN/Infinity is not allowed; provide a finite number.`);
+    }
+  }
+
   if (isExpr(value)) {
     if (value.kind === "param")
       return hint ? { ...value, hint: hint ?? value.hint } : value;
@@ -152,7 +212,7 @@ export function toParam(value: unknown, hint?: SpType): Expr {
     }
     // それ以外（column など）は param 化の対象ではないので、そのまま返すのはNG。
     // toParam は「右辺値専用」なので、ここに来るのは設計ミスとみなしてエラーにしておくと安全。
-    throw new Error("toParam(): unsupported Expr on right-hand side");
+    throw new QueryBuildError('toParam(): unsupported Expr on right-hand side. Pass a JS value or a param/literal.');
   }
   return hint === undefined
     ? { kind: "param", value }
@@ -170,6 +230,14 @@ const toSpType = (h: LitHint): SpType | undefined => {
 };
 
 export function lit(value: unknown, hint?: LitHint): Expr {
+  if (isStrict()) {
+    if (value === undefined) {
+      throw new QueryBuildError(`lit(): received undefined. Use lit(null, hint) if you want NULL.`);
+    }
+    if (typeof value === 'number' && !Number.isFinite(value)) {
+      throw new QueryBuildError(`lit(): NaN/Infinity is not allowed; provide a finite number.`);
+    }
+  }
   // Expr を渡されても param に「中身の値」を入れる
   if (isExpr(value)) {
     if (value.kind === "param") {
