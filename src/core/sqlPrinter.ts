@@ -1,4 +1,4 @@
-import type { Expr, OrderItem, Projection, SelectStmt } from './ast.js';
+import type { Expr, FromSourceTable, OrderItem, Projection, SelectStmt } from './ast.js';
 import { spTypeToString } from './schema.js';
 
 export type SqlOut = {
@@ -67,6 +67,13 @@ export function toSql(stmt: SelectStmt, dialect: Dialect): SqlOut {
     }
   };
 
+  const printFrom = (from: FromSourceTable): string => {
+    if (from.kind === 'table') {
+      return from.name;
+    }
+    return `${from.base.name} CROSS JOIN UNNEST(${printExpr(from.unnest.expr)}) AS ${from.unnest.alias}`;
+  };
+
   const printOrderBy = (items?: OrderItem[]) =>
     !items || items.length === 0
       ? ''
@@ -77,7 +84,7 @@ export function toSql(stmt: SelectStmt, dialect: Dialect): SqlOut {
     hdr,
     printProjections(stmt.projections, printExpr),
     'FROM',
-    stmt.from.name,
+    printFrom(stmt.from),
     stmt.where ? `WHERE ${printExpr(stmt.where)}` : '',
     stmt.groupBy && stmt.groupBy.length > 0
       ? `GROUP BY ${stmt.groupBy.map(printExpr).join(', ')}`

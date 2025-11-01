@@ -30,6 +30,10 @@ export type FromStep<
       selectDistinct<S>(
         project: (c: ColumnProxy<C>, _fn: Record<string, never>) => S,
       ): FinalQuery<S>;
+      crossJoinUnnest(
+        pick: (c: ColumnProxy<C>) => Expr,
+        alias: string,
+      ): FromStep<TSources, C, 'plain'>;
     }
   : {
       // grouped では group key or aggregate しか受けない

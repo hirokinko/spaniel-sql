@@ -114,6 +114,20 @@ function makeFromStep<TSources, C extends Record<string, ColumnType<any>>>(
     return makeFinalQuery<S>(ctx.stmt);
   };
 
+  const crossJoinUnnest = (
+    pick: (c: ColumnProxy<C>) => Expr,
+    alias: string,
+  ): FromStep<TSources, C> => {
+    const c = createColumnProxy<C>(ctx.table, ctx.columns);
+    const expr = pick(c);
+    ctx.stmt.from = {
+      kind: 'unnest',
+      base: { kind: 'table', name: ctx.table },
+      unnest: { expr, alias },
+    } as any;
+    return makeFromStep<TSources, C>(ctx);
+  };
+
   return {
     where,
     orderBy,
@@ -123,6 +137,7 @@ function makeFromStep<TSources, C extends Record<string, ColumnType<any>>>(
     having,
     select,
     selectDistinct,
+    crossJoinUnnest,
   } as unknown as FromStep<TSources, C>;
 }
 

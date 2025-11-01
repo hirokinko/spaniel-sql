@@ -23,7 +23,13 @@ export type Expr =
     };
 
 export type Projection = { expr: Expr; alias?: Identifier };
-export type FromSourceTable = { kind: 'table'; name: Identifier };
+export type FromSourceTable =
+  | { kind: 'table'; name: Identifier }
+  | {
+      kind: 'unnest';
+      base: { kind: 'table'; name: string };
+      unnest: { expr: Expr; alias: string };
+    };
 export type OrderItem = { expr: Expr; dir: 'ASC' | 'DESC' };
 
 export type SelectStmt = {
