@@ -1,9 +1,14 @@
-import type { FinalQuery, FromStep, BuildContext, BoolExpr } from './core/types.js';
-import { createColumnProxy, objectToProjections, toParam } from './core/types.js';
-import type { OrderItem, SelectStmt } from './core/ast.js';
+import type { Expr, OrderItem, SelectStmt } from './core/ast.js';
 import { toSql as coreToSql } from './core/sqlPrinter.js';
 import type { ColumnType, TableDef } from './core/schema.js';
 import type { ColumnProxy } from './core/schema.js';
+import {
+  createColumnProxy,
+  objectToProjections,
+  toParam,
+  type FinalQuery,
+  type FromStep,
+} from './core/types/index.js';
 
 export type Db = {
   from: <N extends string, C extends Record<string, ColumnType<any>>>(
@@ -14,6 +19,12 @@ export type Db = {
     columns: C,
   ) => FromStep<{ [K in N]: true }, C>;
   selectExpr: <S>(expr: () => S) => FinalQuery<{ row: S }>;
+};
+
+type BuildContext<C extends Record<string, ColumnType<any>>> = {
+  table: string;
+  columns: C;
+  stmt: SelectStmt;
 };
 
 export function createDb(): Db {
@@ -56,7 +67,7 @@ export function createDb(): Db {
 function makeFromStep<TSources, C extends Record<string, ColumnType<any>>>(
   ctx: BuildContext<C>,
 ): FromStep<TSources, C> {
-  const where = (pred: (c: ColumnProxy<C>) => BoolExpr): FromStep<TSources, C> => {
+  const where = (pred: (c: ColumnProxy<C>) => Expr): FromStep<TSources, C> => {
     ctx.stmt.where = pred(createColumnProxy<C>(ctx.table, ctx.columns)) as any;
     return makeFromStep<TSources, C>(ctx);
   };
