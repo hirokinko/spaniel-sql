@@ -57,6 +57,11 @@ export function toSql(stmt: SelectStmt, dialect: Dialect): SqlOut {
         return `${printExpr(expr.expr)} IS NOT NULL`;
       case 'nullif':
         return `NULLIF(${printExpr(expr.a)}, ${printExpr(expr.b)})`;
+      case 'call': {
+        const args = expr.args.map(printExpr).join(', ');
+        const distinct = expr.distinct ? 'DISTINCT ' : '';
+        return `${expr.name}(${distinct}${args})`;
+      }
       default:
         throw new Error(`Unsupported expression ${(expr as any).kind}`);
     }
@@ -73,6 +78,10 @@ export function toSql(stmt: SelectStmt, dialect: Dialect): SqlOut {
     'FROM',
     stmt.from.name,
     stmt.where ? `WHERE ${printExpr(stmt.where)}` : '',
+    stmt.groupBy && stmt.groupBy.length > 0
+      ? `GROUP BY ${stmt.groupBy.map(printExpr).join(', ')}`
+      : '',
+    stmt.having ? `HAVING ${printExpr(stmt.having)}` : '',
     printOrderBy(stmt.orderBy),
     stmt.limit ? `LIMIT ${printExpr(stmt.limit)}` : '',
     stmt.offset ? `OFFSET ${printExpr(stmt.offset)}` : '',

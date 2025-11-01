@@ -1,11 +1,6 @@
 import type { ColumnProxy, ColumnType, SpType } from '../schema';
+import { asScalar } from './brand';
 
-export type ColumnExpr = {
-  kind: 'column';
-  table: string;
-  name: string;
-  spType?: SpType;
-};
 export function createColumnProxy<C extends Record<string, ColumnType<any>>>(
   table: string,
   columns: C,
@@ -15,11 +10,14 @@ export function createColumnProxy<C extends Record<string, ColumnType<any>>>(
     {
       get(_t, prop) {
         if (typeof prop !== 'string') {
-          return undefined as any;
+          return undefined;
         }
-        const def = (columns as any)[prop];
-        const spType: SpType | undefined = def && (def as ColumnType<any>).__sp;
-        return { kind: 'column', table, name: prop, spType } as any;
+        const def = columns[prop];
+        if (def === undefined) {
+          throw new Error(`Column "${prop}" does not exist in table "${table}"`);
+        }
+        const spType: SpType | undefined = def.__sp;
+        return asScalar({ kind: 'column', table, name: prop, spType });
       },
       has() {
         return true;

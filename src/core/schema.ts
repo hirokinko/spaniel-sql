@@ -39,6 +39,6 @@ export type ColumnProxy<C extends Record<string, ColumnType<any>>> = {
     kind: 'column';
     table: string;
     name: Extract<K, string>;
-    spType?: SpType;
+    spType: SpType | undefined;
   };
 };

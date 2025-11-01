@@ -1,6 +1,8 @@
+export { ag } from './agg.js';
+export { g } from './brand.js';
 export { bool, FALSE, TRUE } from './bool.js';
 export { cmp } from './cmp.js';
-export { createColumnProxy, type ColumnExpr } from './column.js';
+export { createColumnProxy } from './column.js';
 export type { FinalQuery, FromStep } from './flow.js';
 export { fn } from './fn.js';
 export { asc, desc } from './order.js';

@@ -71,25 +71,46 @@ function makeFromStep<TSources, C extends Record<string, ColumnType<any>>>(
     ctx.stmt.where = pred(createColumnProxy<C>(ctx.table, ctx.columns)) as any;
     return makeFromStep<TSources, C>(ctx);
   };
+
   const orderBy = (pick: (c: ColumnProxy<C>) => OrderItem[] | OrderItem): FromStep<TSources, C> => {
     const res = pick(createColumnProxy<C>(ctx.table, ctx.columns));
     ctx.stmt.orderBy = Array.isArray(res) ? res : [res];
     return makeFromStep<TSources, C>(ctx);
   };
+
   const limit = (n: number): FromStep<TSources, C> => {
     ctx.stmt.limit = toParam(n);
     return makeFromStep<TSources, C>(ctx);
   };
+
   const offset = (n: number): FromStep<TSources, C> => {
     ctx.stmt.offset = toParam(n);
     return makeFromStep<TSources, C>(ctx);
   };
+
+  const groupBy = (pick: (c: ColumnProxy<C>) => any): FromStep<TSources, C, 'grouped'> => {
+    const c = createColumnProxy<C>(ctx.table, ctx.columns);
+    const res = pick(c);
+    ctx.stmt.groupBy = (Array.isArray(res) ? res : [res]) as any;
+    return makeFromStep(ctx) as unknown as FromStep<TSources, C, 'grouped'>;
+  };
+
+  const having = (pred: (c: ColumnProxy<C>) => Expr): FromStep<TSources, C, 'grouped'> => {
+    const c = createColumnProxy<C>(ctx.table, ctx.columns);
+    ctx.stmt.having = pred(c) as any;
+    return makeFromStep(ctx) as unknown as FromStep<TSources, C, 'grouped'>;
+  };
+
   const select = <S>(project: (c: ColumnProxy<C>, fn: Record<string, never>) => S) => {
     const c = createColumnProxy<C>(ctx.table, ctx.columns);
     ctx.stmt.projections = objectToProjections(project(c, {}) as any, ctx.table);
     return makeFinalQuery<S>(ctx.stmt);
   };
-  return { where, orderBy, limit, offset, select } as unknown as FromStep<TSources, C>;
+
+  return { where, orderBy, limit, offset, groupBy, having, select } as unknown as FromStep<
+    TSources,
+    C
+  >;
 }
 
 function makeFinalQuery<S>(stmt: SelectStmt): FinalQuery<S> {
