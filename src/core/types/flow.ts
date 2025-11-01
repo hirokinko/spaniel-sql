@@ -27,6 +27,9 @@ export type FromStep<
       ): FromStep<TSources, C, 'grouped'>;
       // plain の select は自由（Scalar/Agg混在許容）
       select<S>(project: (c: ColumnProxy<C>, _fn: Record<string, never>) => S): FinalQuery<S>;
+      selectDistinct<S>(
+        project: (c: ColumnProxy<C>, _fn: Record<string, never>) => S,
+      ): FinalQuery<S>;
     }
   : {
       // grouped では group key or aggregate しか受けない

@@ -72,8 +72,9 @@ export function toSql(stmt: SelectStmt, dialect: Dialect): SqlOut {
       ? ''
       : `ORDER BY ${items.map((i) => `${printExpr(i.expr)} ${i.dir}`).join(', ')}`;
 
+  const hdr = stmt.distinct ? 'SELECT DISTINCT' : 'SELECT';
   const sql = [
-    'SELECT',
+    hdr,
     printProjections(stmt.projections, printExpr),
     'FROM',
     stmt.from.name,

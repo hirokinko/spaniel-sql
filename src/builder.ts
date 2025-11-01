@@ -107,10 +107,23 @@ function makeFromStep<TSources, C extends Record<string, ColumnType<any>>>(
     return makeFinalQuery<S>(ctx.stmt);
   };
 
-  return { where, orderBy, limit, offset, groupBy, having, select } as unknown as FromStep<
-    TSources,
-    C
-  >;
+  const selectDistinct = <S>(project: (c: ColumnProxy<C>, fn: Record<string, never>) => S) => {
+    const c = createColumnProxy<C>(ctx.table, ctx.columns);
+    ctx.stmt.distinct = true;
+    ctx.stmt.projections = objectToProjections(project(c, {}) as any, ctx.table);
+    return makeFinalQuery<S>(ctx.stmt);
+  };
+
+  return {
+    where,
+    orderBy,
+    limit,
+    offset,
+    groupBy,
+    having,
+    select,
+    selectDistinct,
+  } as unknown as FromStep<TSources, C>;
 }
 
 function makeFinalQuery<S>(stmt: SelectStmt): FinalQuery<S> {

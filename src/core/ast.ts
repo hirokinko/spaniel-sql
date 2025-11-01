@@ -30,6 +30,7 @@ export type SelectStmt = {
   kind: 'select';
   from: FromSourceTable;
   projections: Projection[];
+  distinct?: boolean;
   where?: Expr;
   groupBy?: Expr[];
   having?: Expr;
