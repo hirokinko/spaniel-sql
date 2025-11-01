@@ -9,11 +9,7 @@ export function register_coalesce_nulls_tests() {
   test('COALESCE を WHERE で使用', () => {
     const { sql, params, paramTypes } = db
       .from(T)
-      .where((c) =>
-        bool.and([
-          cmp.eq(fn.coalesce(c.a, { kind: 'literal', value: 'x' }), 'y'),
-        ]),
-      )
+      .where((c) => bool.and([cmp.eq(fn.coalesce(c.a, { kind: 'literal', value: 'x' }), 'y')]))
       .select((c) => ({ A: c.a }))
       .toSql();
 
@@ -21,18 +17,13 @@ export function register_coalesce_nulls_tests() {
     assert.match(sql, /WHERE\s+COALESCE\(a,\s*@p1\)\s*=\s*@p2/i);
     assert.deepEqual(params, { p1: 'x', p2: 'y' });
     // a は STRING だが、リテラル 'x' は P0 では型推測しないため paramTypes は空のままでOK
-    assert.deepEqual(paramTypes, {}); 
+    assert.deepEqual(paramTypes, {});
   });
 
   test('IS NULL / IS NOT NULL', () => {
     const { sql } = db
       .from(T)
-      .where((c) =>
-        bool.and([
-          fn.isNull(c.a),
-          fn.notNull(c.n),
-        ]),
-      )
+      .where((c) => bool.and([fn.isNull(c.a), fn.notNull(c.n)]))
       .select((c) => ({ N: c.n }))
       .toSql();
 

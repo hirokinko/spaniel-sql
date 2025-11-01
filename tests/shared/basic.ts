@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { createDb, defineTable, bool, cmp, ct } from 'spaniel-sql'
+import { createDb, defineTable, bool, cmp, ct } from 'spaniel-sql';
 
 export function register_basic_tests() {
   test('from→where(bool.and)→select: SQL / params(record) / paramTypes', () => {
@@ -14,9 +14,7 @@ export function register_basic_tests() {
     const db = createDb();
     const q = db
       .from(Project)
-      .where((c) =>
-        bool.and([cmp.eq(c.tenantId, 't1'), cmp.eq(c.projectId, 'p1')]),
-      )
+      .where((c) => bool.and([cmp.eq(c.tenantId, 't1'), cmp.eq(c.projectId, 'p1')]))
       .select((c) => ({
         id: c.projectId,
         createdAtMs: c.createdAtUnixMillis,

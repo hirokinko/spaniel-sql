@@ -9,14 +9,17 @@ export function register_order_limit_tests() {
   test('ORDER BY / LIMIT / OFFSET', () => {
     const { sql, params, paramTypes } = db
       .from(T)
-      .where((c) => bool.and([ cmp.like(c.a, 'x%'), cmp.in(c.b, ['B1','B2']) ]))
+      .where((c) => bool.and([cmp.like(c.a, 'x%'), cmp.in(c.b, ['B1', 'B2'])]))
       .orderBy((c) => [asc(c.a), desc(c.n)])
       .limit(10)
       .offset(20)
       .select((c) => ({ A: c.a, N: c.n }))
       .toSql();
 
-    assert.match(sql, /^SELECT\s+a\s+AS\s+A,\s+n\s+AS\s+N\s+FROM\s+T\s+WHERE\s+\(a\sLIKE\s@p1\sAND\s+b\sIN\s\(@p2,\s@p3\)\)\s+ORDER BY\s+a\sASC,\s+n\sDESC\s+LIMIT\s+@p4\s+OFFSET\s+@p5\s*$/i);
+    assert.match(
+      sql,
+      /^SELECT\s+a\s+AS\s+A,\s+n\s+AS\s+N\s+FROM\s+T\s+WHERE\s+\(a\sLIKE\s@p1\sAND\s+b\sIN\s\(@p2,\s@p3\)\)\s+ORDER BY\s+a\sASC,\s+n\sDESC\s+LIMIT\s+@p4\s+OFFSET\s+@p5\s*$/i,
+    );
     assert.deepEqual(params, { p1: 'x%', p2: 'B1', p3: 'B2', p4: 10, p5: 20 });
     // a,b は STRING, n は INT64。LIMIT/OFFSET は型ヒントなし
     assert.deepEqual(paramTypes, { p1: 'STRING', p2: 'STRING', p3: 'STRING' });
@@ -25,7 +28,7 @@ export function register_order_limit_tests() {
   test('cmp.in([]) は WHERE FALSE', () => {
     const { sql } = db
       .from(T)
-      .where((c) => bool.and([ cmp.in(c.a, []) ]))
+      .where((c) => bool.and([cmp.in(c.a, [])]))
       .select((c) => ({ A: c.a }))
       .toSql();
 

@@ -10,7 +10,7 @@ export function register_unnest_tests() {
     const ids = ['a', 'b'];
     const { sql, params, paramTypes } = db
       .from(T)
-      .where((c) => bool.and([ cmp.inUnnest(c.id, ids) ]))
+      .where((c) => bool.and([cmp.inUnnest(c.id, ids)]))
       .select((c) => ({ id: c.id }))
       .toSql();
 

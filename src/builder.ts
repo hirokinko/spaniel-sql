@@ -53,7 +53,9 @@ export function createDb(): Db {
   return { from, fromNamed, selectExpr };
 }
 
-function makeFromStep<TSources, C extends Record<string, ColumnType<any>>>(ctx: BuildContext<C>): FromStep<TSources, C> {
+function makeFromStep<TSources, C extends Record<string, ColumnType<any>>>(
+  ctx: BuildContext<C>,
+): FromStep<TSources, C> {
   const where = (pred: (c: ColumnProxy<C>) => BoolExpr): FromStep<TSources, C> => {
     ctx.stmt.where = pred(createColumnProxy<C>(ctx.table, ctx.columns)) as any;
     return makeFromStep<TSources, C>(ctx);
