@@ -5,6 +5,6 @@ export { cmp } from './cmp.js';
 export { createColumnProxy } from './column.js';
 export type { FinalQuery, FromStep } from './flow.js';
 export { fn } from './fn.js';
-export { asc, desc } from './order.js';
+export { asc, desc, nullsFirst, nullsLast } from './order.js';
 export { lit, toParam } from './param.js';
 export { objectToProjections } from './project.js';
