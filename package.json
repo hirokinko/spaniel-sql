@@ -27,8 +27,8 @@
 		"format:check": "biome format",
 		"ci:check": "pnpm -s lint && pnpm -s format:check && pnpm -s typecheck && pnpm -s test",
 		"build:test": "tsc -p tsconfig.tests.json",
-		"test:cjs": "node --test --test-reporter=spec \".tmp-tests/tests/cjs/**/*.cjs\"",
-		"test:esm": "node --test --test-reporter=spec \".tmp-tests/tests/esm/**/*.mjs\"",
+		"test:cjs": "NODE_OPTIONS=\"--enable-source-maps\" node --test --test-reporter=spec \".tmp-tests/tests/cjs/**/*.cjs\"",
+		"test:esm": "NODE_OPTIONS=\"--enable-source-maps\" node --test --test-reporter=spec \".tmp-tests/tests/esm/**/*.mjs\"",
 		"test": "pnpm -s clean && pnpm -s build && pnpm -s build:test && pnpm -s test:cjs && pnpm -s test:esm",
 		"prepublishOnly": "pnpm -s build && pnpm -s ci:check"
 	},

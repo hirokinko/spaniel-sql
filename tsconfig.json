@@ -8,8 +8,10 @@
     "noUncheckedIndexedAccess": true,
     "verbatimModuleSyntax": true,
     "exactOptionalPropertyTypes": true,
+    "sourceMap": true,
     "declaration": true,
-    "declarationMap": false,
+    "declarationMap": true,
+    "inlineSources": true,
     "skipLibCheck": true,
     "lib": ["ES2022"],
     "types": ["node"]
