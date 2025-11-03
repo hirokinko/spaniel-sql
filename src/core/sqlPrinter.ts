@@ -1,5 +1,5 @@
 import type { Expr, FromSourceTable, OrderItem, Projection, SelectStmt } from './ast.js';
-import { spTypeToString } from './schema.js';
+import { createSqlContext } from './sqlContext.js';
 
 export type SqlOut = {
   sql: string;
@@ -9,95 +9,40 @@ export type SqlOut = {
 export type Dialect = { paramName: (index1based: number) => string };
 
 export function toSql(stmt: SelectStmt, dialect: Dialect): SqlOut {
-  const params: Record<string, unknown> = {};
-  const types: Record<string, string> = {};
-  let p = 0;
-
-  const nameParam = (value: unknown, hint?: any): string => {
-    const key = dialect.paramName(++p).slice(1); // '@p1' -> 'p1'
-    params[key] = value;
-    if (hint) {
-      types[key] = spTypeToString(hint);
-    }
-    return `@${key}`;
-  };
-
-  const printExpr = (expr: Expr): string => {
-    switch (expr.kind) {
-      case 'column':
-        return expr.name;
-      case 'param':
-        return nameParam(expr.value, expr.hint);
-      case 'literal':
-        return nameParam(expr.value);
-      case 'bool':
-        return expr.value ? 'TRUE' : 'FALSE';
-      case 'binary':
-        return `${printExpr(expr.left)} ${expr.op} ${printExpr(expr.right)}`;
-      case 'in_list': {
-        const items = expr.items.map(printExpr).join(', ');
-        return `${printExpr(expr.left)} IN (${items || ''})`;
-      }
-      case 'in_unnest': {
-        return `${printExpr(expr.left)} IN UNNEST(${printExpr(expr.param)})`;
-      }
-      case 'bool_nary': {
-        const parts = expr.items.map(printExpr);
-        return parts.length <= 1
-          ? (parts[0] ?? (expr.op === 'AND' ? 'TRUE' : 'FALSE'))
-          : `(${parts.join(` ${expr.op} `)})`;
-      }
-      case 'coalesce': {
-        const parts = expr.items.map(printExpr).join(', ');
-        return `COALESCE(${parts})`;
-      }
-      case 'is_null':
-        return `${printExpr(expr.expr)} IS NULL`;
-      case 'is_not_null':
-        return `${printExpr(expr.expr)} IS NOT NULL`;
-      case 'nullif':
-        return `NULLIF(${printExpr(expr.a)}, ${printExpr(expr.b)})`;
-      case 'call': {
-        const args = expr.args.map(printExpr).join(', ');
-        const distinct = expr.distinct ? 'DISTINCT ' : '';
-        return `${expr.name}(${distinct}${args})`;
-      }
-      default:
-        throw new Error(`Unsupported expression ${(expr as any).kind}`);
-    }
-  };
-
-  const printFrom = (from: FromSourceTable): string => {
-    if (from.kind === 'table') {
-      return from.name;
-    }
-    return `${from.base.name} CROSS JOIN UNNEST(${printExpr(from.unnest.expr)}) AS ${from.unnest.alias}`;
-  };
-
-  const printOrderBy = (items?: OrderItem[]) =>
-    !items || items.length === 0
-      ? ''
-      : `ORDER BY ${items.map((i) => `${printExpr(i.expr)} ${i.dir}`).join(', ')}`;
-
-  const hdr = stmt.distinct ? 'SELECT DISTINCT' : 'SELECT';
+  const context = createSqlContext(dialect);
+  const { printExpr } = context;
+  const header = stmt.distinct ? 'SELECT DISTINCT' : 'SELECT';
   const sql = [
-    hdr,
+    header,
     printProjections(stmt.projections, printExpr),
     'FROM',
-    printFrom(stmt.from),
+    printFrom(stmt.from, printExpr),
     stmt.where ? `WHERE ${printExpr(stmt.where)}` : '',
     stmt.groupBy && stmt.groupBy.length > 0
       ? `GROUP BY ${stmt.groupBy.map(printExpr).join(', ')}`
       : '',
     stmt.having ? `HAVING ${printExpr(stmt.having)}` : '',
-    printOrderBy(stmt.orderBy),
+    printOrderBy(stmt.orderBy, printExpr),
     stmt.limit ? `LIMIT ${printExpr(stmt.limit)}` : '',
     stmt.offset ? `OFFSET ${printExpr(stmt.offset)}` : '',
   ]
     .filter(Boolean)
     .join(' ');
 
-  return { sql, params, paramTypes: types };
+  return context.finalize(sql);
+}
+
+function printFrom(from: FromSourceTable, printExpr: (e: Expr) => string): string {
+  if (from.kind === 'table') {
+    return from.name;
+  }
+  return `${from.base.name} CROSS JOIN UNNEST(${printExpr(from.unnest.expr)}) AS ${from.unnest.alias}`;
+}
+
+function printOrderBy(items: OrderItem[] | undefined, printExpr: (e: Expr) => string): string {
+  return !items || items.length === 0
+    ? ''
+    : `ORDER BY ${items.map((i) => `${printExpr(i.expr)} ${i.dir}`).join(', ')}`;
 }
 
 function printProjections(projections: Projection[], printExpr: (e: Expr) => string): string {
