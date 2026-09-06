@@ -2,50 +2,63 @@
 
 Spaniel is being redesigned from a fluent query-builder DSL into a **Spanner-native Typed SQL toolchain**.
 
-The core principle is simple:
+The core principle is:
 
-> Keep SQL as SQL. Add structure only where dynamic SQL cannot be expressed safely with parameters alone.
+> Keep queries executable as native GoogleSQL wherever possible. Use minimal 2-way annotations only for dynamic structure, and let Spanner remain the authority for SQL semantics and types.
 
-This avoids re-implementing GoogleSQL in TypeScript while still providing strong typing, schema validation, migration verification, and reusable dynamic fragments.
+Spaniel should not re-implement GoogleSQL in TypeScript. Its job is to preserve SQL transparency while adding type generation, template-context validation, schema compatibility, and migration verification around Spanner.
 
 ## Design principles
 
 1. **SQL-first**
-   - Static queries remain ordinary `.sql` files.
-   - GoogleSQL syntax and semantics are validated by Spanner itself wherever possible.
+   - Query files remain ordinary `.sql` files.
+   - Fixed queries are plain GoogleSQL.
+   - Dynamic queries use minimal 2-way SQL annotations rather than a second TypeScript query language.
 
-2. **Minimal DSL surface**
+2. **Keep SQL directly inspectable and executable**
+   - A query file should remain useful outside Spaniel.
+   - Developers should be able to paste its example form into Spanner Studio or other Spanner tooling for debugging, plan inspection, and performance investigation.
+
+3. **Minimal DSL surface**
    - Spaniel must not reproduce `SELECT`, `FROM`, `JOIN`, `LIKE`, comparison operators, CTEs, window functions, or other ordinary SQL syntax as fluent APIs.
-   - Typed helpers are reserved for dynamic SQL structure that cannot safely be represented by SQL parameters alone.
+   - Template syntax is reserved for control flow and bind examples needed to keep a dynamic query executable as ordinary SQL.
 
-3. **Spanner as the type checker**
-   - Use Spanner query analysis / PLAN metadata to infer and validate parameter and result types where possible.
-   - TypeScript types are generated from Spanner metadata rather than from a parallel schema model.
+4. **Spanner as the type checker**
+   - Use Spanner-backed analysis to infer and validate parameter and result types wherever possible.
+   - Do not duplicate GoogleSQL operator/type rules in TypeScript.
+   - Generate TypeScript contracts from Spanner metadata rather than from a parallel ORM-style schema model.
 
-4. **Typed dynamic fragments**
-   - Dynamic SQL is composed from typed fragments rather than raw string concatenation.
-   - Fragment helpers should remain small and structural: parameter binding, optional fragments, predicate composition, safe identifiers, dynamic ordering, and similar cases.
+5. **Typed 2-way SQL context validation**
+   - Spaniel parses template variables and control flow from 2-way SQL annotations.
+   - It renders parameterized GoogleSQL for application execution.
+   - It checks the template context against Spanner-inferred parameter types.
+   - Representative template expansions are validated against Spanner.
 
-5. **No duplicate schema model unless unavoidable**
-   - Avoid maintaining a second ORM-style schema in TypeScript.
+6. **No duplicate schema model unless unavoidable**
+   - Avoid maintaining a second TypeScript schema model solely to type queries.
    - Prefer Spanner schema introspection and generated metadata.
 
-6. **Migration and query validation are one toolchain**
-   - A schema produced by migrations must be the same schema against which Typed SQL is validated.
+7. **Migration and query validation are one toolchain**
+   - A schema produced by migrations must be the same schema against which plain and 2-way Typed SQL are validated.
 
 ## Target architecture
 
 ```text
                           Spaniel
                             |
+                    Typed SQL files
+                            |
               +-------------+-------------+
               |                           |
-        Static Typed SQL             Dynamic SQL
-          *.sql files              typed templates
+          Plain SQL                  2-way SQL
+              |                           |
+              |                    template parse
+              |                    context analysis
+              |                    branch expansion
               |                           |
               +-------------+-------------+
                             |
-                      rendered SQL
+                    native GoogleSQL
                             |
                     Spanner validation
                             |
@@ -56,11 +69,12 @@ This avoids re-implementing GoogleSQL in TypeScript while still providing strong
 
 Runtime responsibilities remain deliberately small:
 
-- execute typed queries and commands
-- bind and normalize Spanner parameters
-- handle Spanner-specific value codecs
-- expose transaction primitives where needed
-- optionally validate schema compatibility at startup
+- execute typed queries and commands;
+- bind and normalize Spanner parameters;
+- handle Spanner-specific value codecs;
+- render 2-way SQL branches from a validated context;
+- expose transaction primitives where needed;
+- optionally validate schema compatibility at startup.
 
 ## Phase 1 — Typed SQL core
 
@@ -74,6 +88,7 @@ Replace the fluent statement builder as the primary API.
 - Infer result row types.
 - Generate TypeScript query functions and types.
 - Preserve Spanner-native SQL instead of translating through an internal statement DSL.
+- Keep the analysis/runtime boundary reusable by the later typed 2-way SQL layer.
 
 ### Initial scope
 
@@ -110,58 +125,90 @@ export function findUser(
 
 Exact runtime mappings for Spanner values such as `INT64`, `NUMERIC`, `DATE`, `TIMESTAMP`, `JSON`, `ARRAY`, and `STRUCT` must be explicit and documented.
 
-## Phase 2 — Minimal typed templates for dynamic SQL
+## Phase 2 — Typed 2-way SQL
 
-Dynamic SQL should not require the old fluent query-builder model.
+Add dynamic SQL without introducing a TypeScript statement-level DSL.
 
-The target is a **structured SQL template API**, not a second SQL language.
+The target is **typed 2-way SQL**: SQL files remain directly executable in Spanner tooling, while comments/annotations carry only the information needed for template control flow and parameter binding.
 
 Example direction:
 
-```ts
-query((ctx, input) => sql`
-  SELECT
-    u.UserId,
-    u.Name
-  FROM Users AS u
-  ${where([
-    when(input.name, sql`
-      u.Name LIKE ${ctx.param(input.name)}
-    `),
-    when(input.statuses?.length, sql`
-      u.Status IN UNNEST(${ctx.param(input.statuses)})
-    `),
-  ])}
-`);
+```sql
+SELECT
+  UserId,
+  Name,
+  Status
+FROM Users
+WHERE TRUE
+/*% if status != null */
+  AND Status = /* status */ 'active'
+/*% end */
+/*% if ids != null */
+  AND UserId IN UNNEST(/* ids */ [1, 2, 3])
+/*% end */
 ```
+
+When pasted directly into Spanner tooling, the comments disappear and the example literals leave valid GoogleSQL.
+
+For application execution, Spaniel should render parameterized SQL and bind values through the Spanner client.
+
+### Type-validation model
+
+```text
+2-way SQL template
+      |
+      +--> template variables / control flow
+      |
+      +--> parameterized GoogleSQL --> Spanner analysis
+                                   --> inferred parameter/result types
+      |
+      +--> context <-> Spanner type validation
+      |
+      +--> generated TypeScript contract
+```
+
+Spaniel should validate the boundary, not reproduce SQL semantics.
+
+For example, Spaniel should not implement its own rules for whether `LIKE`, `IN`, `BETWEEN`, comparisons, or Spanner-specific expressions are valid. It should render valid GoogleSQL and let Spanner analyze those expressions.
+
+### Initial template scope
+
+Start with optional predicates in positions that naturally remain valid SQL, for example:
+
+```sql
+WHERE TRUE
+/*% if condition */
+  AND ...
+/*% end */
+```
+
+Initial support should include:
+
+- template variables referenced by conditions;
+- bind-parameter example literals;
+- documented nullable/optional semantics;
+- generation of typed parameter/result contracts;
+- representative expansion validation against Spanner.
+
+More structurally difficult features such as optional projections, joins, arbitrary clause insertion, or nested control flow should be added only when justified by real use cases.
 
 ### DSL boundary
 
-Prefer plain SQL for:
+Do not add fluent wrappers for ordinary fixed SQL syntax such as:
 
-- `LIKE`
-- comparisons
-- `BETWEEN`
-- `IS NULL`
-- fixed `AND` / `OR`
-- fixed `IN UNNEST(...)`
-- joins
-- CTEs
-- grouping
-- window functions
-- Spanner-specific SQL syntax
+- `SELECT` / `FROM` / `JOIN`;
+- `LIKE`;
+- comparisons;
+- `BETWEEN`;
+- `IS NULL`;
+- fixed `AND` / `OR`;
+- fixed `IN UNNEST(...)`;
+- CTEs;
+- grouping;
+- window functions;
+- Spanner-specific SQL syntax.
 
-Provide helpers only when structure itself is dynamic, for example:
-
-- `sql```
-- `param(...)`
-- `when(...)`
-- `where(...)`
-- dynamic predicate joining (`AND` / `OR`) when the number of predicates is dynamic
-- safe dynamic identifiers
-- safe dynamic ordering
-
-Fragments should carry enough type information to prevent invalid composition without recreating the entire Spanner expression type system in TypeScript.
+The template language should remain much smaller than GoogleSQL itself.
 
 ## Phase 3 — Schema and migration management
 
@@ -189,7 +236,7 @@ Exact-version matching is intentionally avoided so that rolling deployments can 
 
 ## Phase 4 — Spanner Omni verification
 
-Use **Spanner Omni** as the preferred integration environment for schema and migration verification when practical.
+Use **Spanner Omni** as the preferred integration environment for schema, migration, and Typed SQL verification when practical.
 
 ### Verification flow
 
@@ -202,12 +249,29 @@ replay migrations
     |
 verify resulting schema
     |
-validate all Typed SQL
+validate plain Typed SQL
+    |
+render representative 2-way SQL expansions
+    |
+validate context and result types
     |
 drop disposable database
 ```
 
 Do not restart or recreate Omni for each test. A single Omni process can host disposable databases for isolated test runs.
+
+### 2-way SQL verification
+
+The directly executable example form is useful but is not sufficient by itself.
+
+At minimum, verification should cover:
+
+- the directly executable example SQL;
+- a baseline expansion where optional branches are disabled when valid;
+- each optional branch enabled independently;
+- representative combinations when branches interact structurally.
+
+Avoid blindly evaluating all `2^N` combinations. Prefer template-structure-aware coverage and report the exact expansion/context that failed.
 
 ### CI modes
 
@@ -216,7 +280,8 @@ Fast validation:
 ```text
 latest schema snapshot
     -> temporary database
-    -> Typed SQL validation
+    -> plain Typed SQL validation
+    -> representative 2-way SQL validation
 ```
 
 Full migration validation:
@@ -228,12 +293,13 @@ empty database
     -> ...
     -> latest
     -> schema comparison
-    -> Typed SQL validation
+    -> plain Typed SQL validation
+    -> representative 2-way SQL validation
 ```
 
 The full replay can run only when migration files change, on the main branch, or in scheduled CI if it becomes expensive.
 
-Spanner Omni remains an adapter boundary because its availability and client support may evolve independently from Spaniel.
+Spanner Omni remains behind an adapter boundary because its availability and client support may evolve independently from Spaniel.
 
 ## Phase 5 — Configuration profiles
 
@@ -292,9 +358,9 @@ that prints the final resolved configuration and, where useful, the source of ea
 
 Prefer:
 
-- TOML as the user-facing format
-- JSON Schema for editor / Taplo integration
-- optionally generate that JSON Schema from a more maintainable source such as CUE if this becomes useful
+- TOML as the user-facing format;
+- JSON Schema for editor / Taplo integration;
+- optionally generate that JSON Schema from a more maintainable source such as CUE if this becomes useful.
 
 Do not introduce a custom configuration DSL.
 
@@ -302,18 +368,18 @@ Do not introduce a custom configuration DSL.
 
 The intended deployment model includes multiple execution forms of the same application:
 
-- API
-- worker
-- batch
-- CLI
+- API;
+- worker;
+- batch;
+- CLI.
 
 These processes may share a generated Spaniel database package containing:
 
-- query / command contracts
-- generated parameter and row types
-- runtime codecs
-- transaction primitives
-- schema compatibility metadata
+- query / command contracts;
+- generated parameter and row types;
+- runtime codecs;
+- transaction primitives;
+- schema compatibility metadata.
 
 This package is effectively an internal typed database SDK.
 
@@ -323,12 +389,13 @@ It is **not** intended as a shared database abstraction across independently own
 
 Spaniel should not become:
 
-- a full ORM
-- an Active Record implementation
-- a general-purpose fluent SQL query builder
-- a duplicate implementation of GoogleSQL type semantics
-- a database portability layer hiding Spanner-specific features
-- a configuration programming language
+- a full ORM;
+- an Active Record implementation;
+- a general-purpose fluent SQL query builder;
+- a TypeScript reimplementation of GoogleSQL type semantics;
+- a database portability layer hiding Spanner-specific features;
+- a TypeScript dynamic-SQL template DSL that replaces executable SQL files;
+- a configuration programming language.
 
 ## Existing code migration
 
@@ -336,17 +403,17 @@ The current fluent builder and AST implementation should be treated as experimen
 
 Likely removal or de-emphasis:
 
-- statement-level fluent builder APIs
-- query statement AST used only to reproduce GoogleSQL syntax
-- SQL printer code tied to the old builder
-- column proxy machinery whose only purpose is to support the fluent DSL
+- statement-level fluent builder APIs;
+- query statement AST used only to reproduce GoogleSQL syntax;
+- SQL printer code tied to the old builder;
+- column proxy machinery whose only purpose is to support the fluent DSL.
 
 Likely reusable concepts:
 
-- Spanner parameter normalization
-- Spanner-to-TypeScript type mapping
-- runtime integration boundaries
-- tests around Spanner value handling
+- Spanner parameter normalization;
+- Spanner-to-TypeScript type mapping;
+- runtime integration boundaries;
+- tests around Spanner value handling.
 
 ## Near-term milestone
 
@@ -359,4 +426,4 @@ The first meaningful release should prove the smallest useful loop:
    -> execution through @google-cloud/spanner
 ```
 
-Only after this works should Spaniel add dynamic templates, migration orchestration, Omni-backed verification, and higher-level tooling.
+After that works, add typed 2-way SQL context validation before moving on to migration orchestration, Omni-backed verification, and higher-level tooling.
