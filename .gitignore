@@ -134,3 +134,6 @@ dist
 
 # test temporary files
 .tmp-tests/
+.spaniel-test-*/
+.spaniel-integration-*/
+gha-creds-*.json

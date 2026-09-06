@@ -3,6 +3,7 @@ on:
   push:
     branches: [main]
   pull_request:
+  workflow_dispatch:
 jobs:
   build-test:
     runs-on: ubuntu-latest
@@ -23,3 +24,26 @@ jobs:
       - run: pnpm format:check
       - run: pnpm typecheck
       - run: pnpm test
+  spanner-integration:
+    if: github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write
+    env:
+      SPANNER_PROJECT_ID: ${{ vars.SPANNER_PROJECT_ID }}
+      SPANNER_INSTANCE_ID: ${{ vars.SPANNER_INSTANCE_ID }}
+      SPANNER_DATABASE_ID: ${{ vars.SPANNER_DATABASE_ID }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with: { version: 9 }
+      - uses: actions/setup-node@v4
+        with: { node-version: 24, cache: pnpm }
+      - run: pnpm install --frozen-lockfile
+      - uses: google-github-actions/auth@v3
+        with:
+          project_id: ${{ vars.SPANNER_PROJECT_ID }}
+          workload_identity_provider: ${{ vars.SPANNER_WORKLOAD_IDENTITY_PROVIDER }}
+          service_account: ${{ vars.SPANNER_SERVICE_ACCOUNT }}
+      - run: pnpm test:integration
